@@ -35,6 +35,7 @@ The system is organized into modular Coq files grouped into conceptual layers.
 |-------------------------|-------------------------------------------------|
 | `void_geometry.v`        | Defines vector space `Vₙ` over ℙ_𝔽 without standard basis. |
 | `void_symmetry_movement.v` | Budget-aware symmetry and motion operators.    |
+| `void_geometry_basis.v` | Defines shapes as fields, space as distinguishability gradient.   |
 
 ### 4. Pattern and Neural Computation
 
