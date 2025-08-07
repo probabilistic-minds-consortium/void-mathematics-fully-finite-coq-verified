@@ -199,39 +199,6 @@ Definition make_ten (b : Budget) : (Fin * Budget) := mk_fin_b 10 b.
 Definition fin_from_nat_b (n : nat) (b : Budget) : (Fin * Budget) :=
   mk_fin_b n b.
 
-  (******************************************************************************)
-(* NON-BUDGETED WRAPPERS - Add this section to void_finite_minimal.v        *)
-(* For legacy compatibility - philosophically inconsistent but practical      *)
-(******************************************************************************)
-
-(* These use initial_budget to provide non-budgeted versions *)
-(* Should be used sparingly - prefer budgeted versions *)
-
-Definition fin_eq (n m : Fin) : bool :=
-fst (fin_eq_b n m initial_budget).
-
-Definition le_fin (n m : Fin) : bool :=
-fst (le_fin_b n m initial_budget).
-
-Definition add_simple (n m : Fin) : Fin :=
-fst (add_fin_b n m initial_budget).
-
-Definition sub_simple (n m : Fin) : Fin :=
-fst (sub_saturate_b n m initial_budget).
-
-Definition dist_fin (n m : Fin) : Fin :=
-fst (dist_fin_b n m initial_budget).
-
-Definition min_fin (n m : Fin) : Fin :=
-fst (min_fin_b n m initial_budget).
-
-Definition max_fin (n m : Fin) : Fin :=
-fst (max_fin_b n m initial_budget).
-
-(* Mark these as legacy *)
-Definition fin_eq_LEGACY := fin_eq.
-Definition le_fin_LEGACY := le_fin.
-Definition add_simple_LEGACY := add_simple.
 
 (******************************************************************************)
 (* PHILOSOPHICAL COMPLETENESS                                                 *)
