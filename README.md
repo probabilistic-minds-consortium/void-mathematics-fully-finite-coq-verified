@@ -60,6 +60,8 @@ The system is organized into modular Coq files grouped into conceptual layers.
 | `void_distinguishability.v`   | Defines observer-based distinguishability `𝒟(O,e₁,e₂,b)`. |
 | `void_probability_minimal.v`  | Core definition of ℙ_𝔽 (shared).             |
 
+void_calculus.v - just in case you need an alternative
+
 ---
 
 ## 🧪 How to Begin
