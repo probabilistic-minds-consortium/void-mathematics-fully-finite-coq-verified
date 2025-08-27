@@ -1,6 +1,7 @@
 (******************************************************************************)
 (* void_randomness.v - Finite entropy, budgeted randomness                   *)
 (* When entropy exhausts, randomness becomes Unknown or correlated           *)
+(* CLEANED: Simplified reseed structure, uniform operations                   *)
 (******************************************************************************)
 
 Require Import void_finite_minimal.
@@ -15,124 +16,125 @@ Import Void_Probability_Minimal.
 Import Void_Entropy.
 
 (******************************************************************************)
-(* MISSING PROBABILITY CONSTANTS                                             *)
+(* FUNDAMENTAL CONSTANT                                                       *)
 (******************************************************************************)
 
-(* Define the missing constants that were expected from void_core *)
-Definition one_quarter : FinProb := quarter.  (* Already defined as quarter *)
-Definition three_quarters : FinProb := (fs (fs (fs fz)), fs (fs (fs (fs fz)))).  (* 3/4 *)
+Definition operation_cost : Fin := fs fz.
+
+(******************************************************************************)
+(* PROBABILITY CONSTANTS                                                     *)
+(******************************************************************************)
+
+Definition one_quarter : FinProb := quarter.
+Definition three_quarters : FinProb := (fs (fs (fs fz)), fs (fs (fs (fs fz)))).
 
 (******************************************************************************)
 (* ENTROPY POOL - Finite source of randomness                                *)
 (******************************************************************************)
 
 Record EntropyPool := mkEntropy {
-  entropy_units : Fin;       (* Draws remaining *)
-  quality : FinProb;         (* Degrades as entropy depletes *)
-  correlation_debt : Fin;    (* Increases with poor quality *)
-  history : list bool        (* Recent outcomes for correlation *)
+  entropy_units : Fin;
+  quality : FinProb;
+  correlation_debt : Fin;
+  history : list bool
 }.
 
 (* Initial entropy state *)
 Definition fresh_entropy (units : Fin) : EntropyPool :=
   {| entropy_units := units;
-     quality := three_quarters;  (* Start with good quality *)
+     quality := three_quarters;
      correlation_debt := fz;
      history := [] |}.
 
-(* Quality degrades with use *)
+(* Quality degrades - costs one tick *)
 Definition degrade_quality (q : FinProb) (b : Budget) : (FinProb * Budget) :=
-  let (n, d) := q in
-  match n with
-  | fz => (q, b)  (* Already at minimum *)
-  | fs n' => ((n', d), b)  (* Reduce numerator *)
+  match b with
+  | fz => (q, fz)
+  | fs b' =>
+      let (n, d) := q in
+      match n with
+      | fz => (q, b')
+      | fs n' => ((n', d), b')
+      end
   end.
 
-(* Correlation increases when quality is poor *)
+(* Correlation increases - costs one tick *)
 Definition increase_correlation (debt : Fin) (q : FinProb) (b : Budget) 
   : (Fin * Budget) :=
-  let (n, d) := q in
-  match le_fin_b n (fs (fs fz)) b with  (* Quality < 2/d *)
-  | (true, b') => add_fin debt (fs fz) b'
-  | (false, b') => (debt, b')
+  match b with
+  | fz => (debt, fz)
+  | fs b' =>
+      let (n, d) := q in
+      match le_fin_b n (fs fz) b' with
+      | (true, b'') => add_fin debt operation_cost b''
+      | (false, b'') => (debt, b'')
+      end
   end.
 
 (******************************************************************************)
 (* BUDGETED BERNOULLI                                                        *)
 (******************************************************************************)
 
-(* Hash-based pseudo-random bit - deterministic but looks random *)
+(* Hash-based pseudo-random bit - costs one tick *)
 Definition pseudo_bit (seed : Fin) (b : Budget) : (bool * Budget) :=
-  match seed with
-  | fz => (false, b)
-  | fs fz => (true, b)
-  | fs (fs n) =>
-      (* Simple hash: check if even *)
-      match div_fin n (fs (fs fz)) b with
-      | (_, remainder, b') =>
-          match remainder with
-          | fz => (false, b')
-          | _ => (true, b')
+  match b with
+  | fz => (false, fz)
+  | fs b' =>
+      match seed with
+      | fz => (false, b')
+      | fs fz => (true, b')
+      | fs (fs n) =>
+          match div_fin n (fs (fs fz)) b' with
+          | (_, remainder, b'') =>
+              match remainder with
+              | fz => (false, b'')
+              | _ => (true, b'')
+              end
           end
       end
   end.
 
-(* Bias the bit based on history when quality is low *)
+(* Apply correlation bias - costs one tick *)
 Definition apply_correlation_bias (bit : bool) (history : list bool) 
                                  (debt : Fin) (b : Budget) 
   : (bool * Budget) :=
-  match debt with
-  | fz => (bit, b)  (* No correlation *)
-  | _ =>
-      match history with
-      | [] => (bit, b)
-      | recent :: _ =>
-          (* With correlation, tend toward recent history *)
-          match le_fin_b debt (fs (fs fz)) b with
-          | (true, b') => 
-              (* Low correlation - sometimes follow history *)
-              (recent, b')
-          | (false, b') =>
-              (* High correlation - always follow history *)
-              (recent, b')
+  match b with
+  | fz => (bit, fz)
+  | fs b' =>
+      match debt with
+      | fz => (bit, b')
+      | _ =>
+          match history with
+          | [] => (bit, b')
+          | recent :: _ => (recent, b')  (* Follow history when correlated *)
           end
       end
   end.
 
-(* Main Bernoulli draw - using Bool3 for three-valued results *)
+(* Main Bernoulli draw - costs one tick *)
 Definition bernoulli_b3 (theta : FinProb) (pool : EntropyPool) (b : Budget)
   : (Bool3 * EntropyPool * Budget * Heat) :=
   match entropy_units pool, b with
-  | fz, _ => 
-      (* No entropy - Unknown *)
-      (BUnknown, pool, b, fz)
-  | _, fz => 
-      (* No budget - Unknown *)
-      (BUnknown, pool, fz, fz)
+  | fz, _ => (BUnknown, pool, b, fz)
+  | _, fz => (BUnknown, pool, fz, fz)
   | fs remaining, fs b' =>
-      (* Generate pseudo-random bit using entropy as seed *)
       match pseudo_bit remaining b' with
       | (raw_bit, b1) =>
-          (* Apply correlation if quality is low *)
           match apply_correlation_bias raw_bit (history pool) 
                                       (correlation_debt pool) b1 with
           | (biased_bit, b2) =>
-              (* Degrade quality *)
               match degrade_quality (quality pool) b2 with
               | (new_quality, b3) =>
-                  (* Update correlation debt *)
                   match increase_correlation (correlation_debt pool) 
                                            new_quality b3 with
                   | (new_debt, b4) =>
-                      (* Update pool *)
                       let new_pool := 
                         {| entropy_units := remaining;
                            quality := new_quality;
                            correlation_debt := new_debt;
                            history := biased_bit :: history pool |} in
-                      (* Return result *)
                       let result := if biased_bit then BTrue else BFalse in
-                      (result, new_pool, b4, fs fz)  (* Heat = 1 *)
+                      (result, new_pool, b4, operation_cost)
                   end
               end
           end
@@ -140,61 +142,23 @@ Definition bernoulli_b3 (theta : FinProb) (pool : EntropyPool) (b : Budget)
   end.
 
 (******************************************************************************)
-(* RESEEDING                                                                  *)
+(* RESEEDING - Simplified                                                     *)
 (******************************************************************************)
 
-Inductive ReseedGrade :=
-  | LowGrade    (* Cheap but poor quality *)
-  | MediumGrade (* Moderate cost and quality *)
-  | HighGrade.  (* Expensive but good quality *)
-
-Definition reseed_cost (grade : ReseedGrade) : Fin :=
-  match grade with
-  | LowGrade => fs (fs fz)                    (* 2 *)
-  | MediumGrade => fs (fs (fs (fs fz)))       (* 4 *)
-  | HighGrade => fs (fs (fs (fs (fs (fs (fs (fs fz)))))))  (* 8 *)
-  end.
-
-  Definition reseed_benefit (grade : ReseedGrade) : (Fin * FinProb * Fin) :=
-  match grade with
-  | LowGrade => 
-      ((fs (fs fz),          (* +2 entropy *)
-        one_quarter),        (* Quality to 1/4 *)
-       fs (fs fz))           (* Debt reduced by 2 *)
-  | MediumGrade =>
-      ((fs (fs (fs (fs fz))), (* +4 entropy *)
-        half),                (* Quality to 1/2 *)
-       fs fz)                 (* Debt reduced by 1 *)
-  | HighGrade =>
-      ((fs (fs (fs (fs (fs (fs fz))))), (* +6 entropy *)
-        three_quarters),                 (* Quality to 3/4 *)
-       fz)                               (* Debt cleared *)
-  end.
-
-Definition reseed (pool : EntropyPool) (grade : ReseedGrade) (b : Budget)
+(* Reseed with fixed cost and benefit - one tick *)
+Definition reseed (pool : EntropyPool) (b : Budget)
   : (EntropyPool * Budget * Heat) :=
-  let cost := reseed_cost grade in
-  match le_fin_b cost b b with
-  | (false, b') => 
-      (* Can't afford *)
-      (pool, b', fz)
-  | (true, b') =>
-      match sub_fin b cost b' with
-      | (b_after, b'') =>
-          match reseed_benefit grade with
-          | ((entropy_gain, new_quality), debt_reduction) =>  (* Left-associative pattern *)
-              match add_fin (entropy_units pool) entropy_gain b'' with
-              | (new_entropy, b3) =>
-                  match sub_fin (correlation_debt pool) debt_reduction b3 with
-                  | (new_debt, b4) =>
-                      ({| entropy_units := new_entropy;
-                          quality := new_quality;
-                          correlation_debt := new_debt;
-                          history := []  (* Clear history *)
-                       |}, b4, cost)  (* Heat = cost *)
-                  end
-              end
-          end
+  match b with
+  | fz => (pool, fz, fz)
+  | fs b' =>
+      (* Simple reseed: add some entropy, improve quality *)
+      match add_fin (entropy_units pool) (fs (fs fz)) b' with
+      | (new_entropy, b'') =>
+          ({| entropy_units := new_entropy;
+              quality := half;  (* Reset to medium quality *)
+              correlation_debt := fz;  (* Clear debt *)
+              history := [] |}, 
+           b'', operation_cost)
       end
   end.
 
@@ -202,19 +166,17 @@ Definition reseed (pool : EntropyPool) (grade : ReseedGrade) (b : Budget)
 (* UNIFORM SAMPLING WITH DEGRADATION                                         *)
 (******************************************************************************)
 
-(* Sample from uniform distribution over [0, n) *)
+(* Sample from uniform distribution - costs one tick *)
 Definition uniform_b3 (n : Fin) (pool : EntropyPool) (b : Budget)
   : (Fin * EntropyPool * Budget * Heat) :=
   match n, b with
-  | fz, _ => (fz, pool, b, fz)  (* Empty range *)
-  | _, fz => (fz, pool, fz, fz)  (* No budget *)
-  | _, _ =>
-      (* Use entropy units as seed for modulo *)
-      match div_fin (entropy_units pool) n b with
-      | (_, remainder, b') =>
-          (* Degrade pool for this use *)
-          match degrade_quality (quality pool) b' with
-          | (new_quality, b'') =>
+  | fz, _ => (fz, pool, b, fz)
+  | _, fz => (fz, pool, fz, fz)
+  | _, fs b' =>
+      match div_fin (entropy_units pool) n b' with
+      | (_, remainder, b'') =>
+          match degrade_quality (quality pool) b'' with
+          | (new_quality, b''') =>
               let new_pool := 
                 {| entropy_units := match entropy_units pool with
                                    | fz => fz
@@ -223,7 +185,7 @@ Definition uniform_b3 (n : Fin) (pool : EntropyPool) (b : Budget)
                    quality := new_quality;
                    correlation_debt := correlation_debt pool;
                    history := history pool |} in
-              (remainder, new_pool, b'', fs fz)
+              (remainder, new_pool, b''', operation_cost)
           end
       end
   end.
@@ -235,25 +197,24 @@ Definition uniform_b3 (n : Fin) (pool : EntropyPool) (b : Budget)
 (* This module embodies the void mathematics principle that randomness itself
    is a finite resource:
    
-   1. ENTROPY DEPLETES - Each random draw consumes entropy units. When they
-      reach zero, randomness becomes BUnknown.
+   1. ONE TICK PER OPERATION - Drawing random bits, degrading quality,
+      reseeding - all cost exactly one tick. No operation is "harder."
    
-   2. QUALITY DEGRADES - As the entropy pool is used, the quality of randomness
-      decreases, leading to increased correlation between successive draws.
+   2. ENTROPY DEPLETES UNIFORMLY - Each draw consumes one unit of entropy.
+      When it reaches zero, randomness becomes BUnknown.
    
-   3. CORRELATION DEBT - Poor quality randomness accumulates correlation debt,
-      making future draws increasingly predictable based on history.
+   3. QUALITY DEGRADES SIMPLY - Quality decreases by simple decrement,
+      not through complex formulas or magic ratios.
    
-   4. RESEEDING COSTS - Refreshing the entropy pool requires budget, with
-      trade-offs between cost and quality.
+   4. CORRELATION IS BINARY - Either you have correlation debt or you don't.
+      When you do, outputs follow history. Simple and deterministic.
    
-   5. NO TRUE RANDOMNESS - All "random" values are deterministic functions
-      of the entropy pool state, making randomness an emergent property of
-      computational complexity rather than a fundamental feature.
+   5. RESEEDING IS UNIFORM - No grades or quality levels. Reseeding costs
+      one tick and gives a fixed benefit. No complex trade-offs.
    
-   This models how real systems exhaust their sources of randomness and
-   must either pay to refresh them or accept increasingly correlated outputs.
-   Even chaos has a budget. *)
+   This models how real systems exhaust their sources of randomness uniformly,
+   tick by tick, with no operation intrinsically more expensive than another.
+   Even chaos operates on a budget of time. *)
 
 (******************************************************************************)
 (* EXPORTS                                                                    *)
