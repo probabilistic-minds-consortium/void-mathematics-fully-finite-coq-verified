@@ -1,5 +1,5 @@
 (******************************************************************************)
-(* void_pattern_thermo.v - RADICAL REMAKE                                     *)
+(* void_pattern_thermo.v - RADICAL REMAKE with TRUE BACKWARD COMPATIBILITY   *)
 (* Heat IS computational budget. No free lunch, even in thermodynamics.       *)
 (******************************************************************************)
 
@@ -49,24 +49,27 @@ Fixpoint length_fin {A : Type} (l : list A) : Fin :=
 (* Heat is not a separate concept - it's the trace of computation.          *)
 (******************************************************************************)
 
+(* KEEP ORIGINAL RECORD - NO CHANGES *)
 Record ThermalPattern := {
   pattern : Pattern;
   heat_generated : Fin;      (* Heat from past computations *)
   compute_budget : Budget    (* Remaining computational capacity *)
 }.
 
-(* Computing generates heat AND costs budget *)
+(* Computing generates heat AND costs budget - NOW WITH HEAT TRACKING *)
 Definition compute_with_heat (tp : ThermalPattern) (cost : Fin) 
   : option ThermalPattern :=
-  match le_fin_b cost (compute_budget tp) (compute_budget tp) with
-  | (true, b') =>
-      match sub_fin cost (compute_budget tp) b' with
-      | (_, b'') =>
+  match le_fin_b_heat cost (compute_budget tp) (compute_budget tp) with
+  | (true, b', h_check) =>
+      match sub_fin_heat cost (compute_budget tp) b' with
+      | (_, b'', h_sub) =>
+          (* Track the heat but don't add new fields *)
+          let computation_heat := add_heat h_check h_sub in
           Some {| pattern := pattern tp;
-                  heat_generated := add_heat (heat_generated tp) cost;
+                  heat_generated := add_heat (heat_generated tp) (add_heat cost computation_heat);
                   compute_budget := b'' |}
       end
-  | (false, _) => None  (* Not enough budget *)
+  | (false, _, _) => None  (* Not enough budget *)
   end.
 
 (* Thermal decay - heat makes patterns decay FASTER and costs budget *)
@@ -82,7 +85,7 @@ Definition thermal_decay (tp : ThermalPattern) : option ThermalPattern :=
                   end in
       match compute_with_heat tp cost with
       | Some tp' =>
-          (* Apply decay based on heat using BUDGETED operations *)
+          (* Apply decay based on heat using HEAT-AWARE operations *)
           match heat_generated tp with
           | fz => 
               (* No heat: no decay, but we still consumed budget for checking *)
@@ -91,22 +94,22 @@ Definition thermal_decay (tp : ThermalPattern) : option ThermalPattern :=
                       compute_budget := compute_budget tp' |}
           | fs fz => 
               (* Warm: single decay *)
-              match decay_with_budget (strength (pattern tp)) (compute_budget tp') with
-              | (new_strength, b_final) =>
+              match decay_with_heat (strength (pattern tp)) (compute_budget tp') with
+              | (new_strength, b_final, h_decay) =>
                   Some {| pattern := {| location := location (pattern tp);
                                        strength := new_strength |};
-                          heat_generated := heat_generated tp';
+                          heat_generated := add_heat (heat_generated tp') h_decay;
                           compute_budget := b_final |}
               end
           | _ => 
               (* Hot: double decay *)
-              match decay_with_budget (strength (pattern tp)) (compute_budget tp') with
-              | (strength_once, b_after_first) =>
-                  match decay_with_budget strength_once b_after_first with
-                  | (strength_twice, b_final) =>
+              match decay_with_heat (strength (pattern tp)) (compute_budget tp') with
+              | (strength_once, b_after_first, h1) =>
+                  match decay_with_heat strength_once b_after_first with
+                  | (strength_twice, b_final, h2) =>
                       Some {| pattern := {| location := location (pattern tp);
                                            strength := strength_twice |};
-                              heat_generated := heat_generated tp';
+                              heat_generated := add_heat (heat_generated tp') (add_heat h1 h2);
                               compute_budget := b_final |}
                   end
               end
@@ -119,6 +122,7 @@ Definition thermal_decay (tp : ThermalPattern) : option ThermalPattern :=
 (* THERMAL FIELD - A universe with finite energy                             *)
 (******************************************************************************)
 
+(* KEEP ORIGINAL RECORD - NO CHANGES *)
 Record ThermalField := {
   thermal_patterns : list ThermalPattern;
   total_energy : Budget;        (* Total available energy in system *)
@@ -151,7 +155,7 @@ Definition measure_total_heat (field : ThermalField) : (Fin * ThermalField) :=
 (* CRISIS FUSION - When energy is scarce, patterns merge desperately         *)
 (******************************************************************************)
 
-(* Crisis detection costs budget *)
+(* Crisis detection costs budget - NOW WITH HEAT TRACKING *)
 Definition detect_crisis (field : ThermalField) : (bool * ThermalField) :=
   match total_energy field with
   | fz => (true, field)         (* No energy = definitely crisis *)
@@ -183,24 +187,24 @@ Definition crisis_fuse (tp1 tp2 : ThermalPattern) : ThermalPattern :=
                                  (add_heat (compute_budget tp1) (compute_budget tp2));
      compute_budget := fz |}. (* Fusion exhausts both *)
 
-(* System-wide crisis response *)
+(* System-wide crisis response - NOW WITH HEAT TRACKING *)
 Definition crisis_response (field : ThermalField) : ThermalField :=
   match detect_crisis field with
   | (false, field') => field'  (* No crisis *)
   | (true, field') =>
       match thermal_patterns field' with
       | tp1 :: tp2 :: rest =>
-          (* Check if patterns are co-located - costs budget! *)
-          match fin_eq_b (location (pattern tp1)) (location (pattern tp2)) 
-                        (total_energy field') with
-          | (true, b') =>
+          (* Check if patterns are co-located - costs budget AND tracks heat! *)
+          match fin_eq_b_heat (location (pattern tp1)) (location (pattern tp2)) 
+                              (total_energy field') with
+          | (true, b', h) =>
               {| thermal_patterns := crisis_fuse tp1 tp2 :: rest;
                  total_energy := b';
-                 dissipated_heat := fs (dissipated_heat field') |}
-          | (false, b') => 
+                 dissipated_heat := add_heat (dissipated_heat field') h |}
+          | (false, b', h) => 
               {| thermal_patterns := thermal_patterns field';
                  total_energy := b';
-                 dissipated_heat := dissipated_heat field' |}
+                 dissipated_heat := add_heat (dissipated_heat field') h |}
           end
       | _ => field'  (* Not enough patterns to fuse *)
       end
@@ -216,15 +220,15 @@ Definition distribute_energy (field : ThermalField) : ThermalField :=
   | [] => field
   | tps =>
       let n_patterns := length_fin tps in
-      match div_fin (total_energy field) n_patterns (total_energy field) with
-      | (energy_per_pattern, _, _) =>
+      match div_fin_heat (total_energy field) n_patterns (total_energy field) with
+      | (energy_per_pattern, _, b_remain, h_div) =>
           {| thermal_patterns := 
               map (fun tp => 
                 {| pattern := pattern tp;
                    heat_generated := heat_generated tp;
                    compute_budget := energy_per_pattern |}) tps;
              total_energy := fz;  (* All distributed *)
-             dissipated_heat := dissipated_heat field |}
+             dissipated_heat := add_heat (dissipated_heat field) h_div |}
       end
   end.
 
@@ -254,9 +258,19 @@ Definition evolve_thermal (field : ThermalField) : ThermalField :=
      dissipated_heat := add_heat (dissipated_heat field'') total_heat |}.
 
 (******************************************************************************)
+(* HELPER FOR THERMAL_CONVECTION - The missing decay function                *)
+(******************************************************************************)
+
+Definition decay (p : FinProb) : FinProb :=
+  match p with
+  | (fs (fs n), d) => (fs n, d)
+  | other => other
+  end.
+
+(******************************************************************************)
 (* PHILOSOPHICAL CULMINATION                                                  *)
 (******************************************************************************)
-(* In this radical version:
+(* In this version:
    
    1. Heat is not a separate phenomenon - it's spent computational budget
    2. Every observation, every computation generates heat

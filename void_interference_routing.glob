@@ -1,0 +1,800 @@
+DIGEST 7b17e7d296fd46eaa7f3d0be4f056619
+Fvoid_interference_routing
+R420:438 void_finite_minimal <> <> lib
+R456:479 void_probability_minimal <> <> lib
+R497:508 void_pattern <> <> lib
+R526:540 void_arithmetic <> <> lib
+R558:571 Coq.Lists.List <> <> lib
+R581:593 Coq.Lists.List ListNotations <> mod
+mod 604:628 <> Void_Interference_Routing
+R639:650 void_pattern Void_Pattern <> mod
+R660:683 void_probability_minimal Void_Probability_Minimal <> mod
+R693:707 void_arithmetic Void_Arithmetic <> mod
+def 965:978 Void_Interference_Routing operation_cost
+R982:984 void_finite_minimal <> Fin ind
+R989:990 void_finite_minimal <> fs constr
+R992:993 void_finite_minimal <> fz constr
+def 1050:1065 Void_Interference_Routing sample_locations
+R1069:1072 Coq.Init.Datatypes <> list ind
+R1074:1076 void_finite_minimal <> Fin ind
+R1083:1083 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R1086:1087 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R1093:1094 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R1105:1106 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R1122:1122 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R1084:1085 void_finite_minimal <> fz constr
+R1088:1089 void_finite_minimal <> fs constr
+R1091:1092 void_finite_minimal <> fz constr
+R1095:1096 void_finite_minimal <> fs constr
+R1099:1100 void_finite_minimal <> fs constr
+R1102:1103 void_finite_minimal <> fz constr
+R1107:1108 void_finite_minimal <> fs constr
+R1111:1112 void_finite_minimal <> fs constr
+R1115:1116 void_finite_minimal <> fs constr
+R1118:1119 void_finite_minimal <> fz constr
+rec 1417:1426 Void_Interference_Routing WaveSurfer
+proj 1435:1448 Void_Interference_Routing surfer_pattern
+proj 1463:1473 Void_Interference_Routing surf_budget
+proj 1487:1494 Void_Interference_Routing momentum
+R1452:1458 void_pattern Void_Pattern Pattern rec
+R1477:1482 void_finite_minimal <> Budget def
+R1498:1500 void_finite_minimal <> Fin ind
+rec 1562:1578 Void_Interference_Routing InterferenceField
+proj 1587:1600 Void_Interference_Routing field_patterns
+proj 1620:1631 Void_Interference_Routing field_budget
+proj 1645:1657 Void_Interference_Routing cached_maxima
+R1604:1607 Coq.Init.Datatypes <> list ind
+R1609:1615 void_pattern Void_Pattern Pattern rec
+R1635:1640 void_finite_minimal <> Budget def
+R1661:1664 Coq.Init.Datatypes <> list ind
+R1670:1672 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R1667:1669 void_finite_minimal <> Fin ind
+R1673:1679 void_probability_minimal Void_Probability_Minimal FinProb def
+rec 1765:1774 Void_Interference_Routing WavePacket
+proj 1783:1797 Void_Interference_Routing packet_patterns
+proj 1817:1829 Void_Interference_Routing packet_energy
+proj 1843:1855 Void_Interference_Routing packet_center
+R1801:1804 Coq.Init.Datatypes <> list ind
+R1806:1812 void_pattern Void_Pattern Pattern rec
+R1833:1838 void_finite_minimal <> Budget def
+R1859:1861 void_finite_minimal <> Fin ind
+def 2167:2170 Void_Interference_Routing andb
+R2181:2184 Coq.Init.Datatypes <> bool ind
+binder 2173:2174 <> b1:13
+binder 2176:2177 <> b2:14
+R2189:2192 Coq.Init.Datatypes <> bool ind
+R2205:2206 void_interference_routing <> b1:13 var
+R2217:2220 Coq.Init.Datatypes <> true constr
+R2225:2226 void_interference_routing <> b2:14 var
+R2232:2236 Coq.Init.Datatypes <> false constr
+R2241:2245 Coq.Init.Datatypes <> false constr
+def 2313:2322 Void_Interference_Routing pred_fin_b
+R2329:2331 void_finite_minimal <> Fin ind
+binder 2325:2325 <> n:16
+R2339:2344 void_finite_minimal <> Budget def
+binder 2335:2335 <> b:17
+R2353:2355 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R2350:2352 void_finite_minimal <> Fin ind
+R2356:2361 void_finite_minimal <> Budget def
+R2378:2378 void_interference_routing <> b:17 var
+R2375:2375 void_interference_routing <> n:16 var
+R2392:2393 void_finite_minimal <> fz constr
+R2398:2398 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2401:2402 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2405:2405 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2399:2400 void_finite_minimal <> fz constr
+R2403:2404 void_finite_minimal <> fz constr
+R2411:2412 void_finite_minimal <> fz constr
+R2415:2416 void_finite_minimal <> fs constr
+R2424:2424 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2427:2428 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2431:2431 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2425:2426 void_finite_minimal <> fz constr
+R2437:2438 void_finite_minimal <> fs constr
+R2444:2445 void_finite_minimal <> fs constr
+R2453:2453 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2456:2457 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2460:2460 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+def 2522:2531 Void_Interference_Routing add_prob_b
+R2542:2548 void_probability_minimal Void_Probability_Minimal FinProb def
+binder 2534:2535 <> p1:20
+binder 2537:2538 <> p2:21
+R2556:2561 void_finite_minimal <> Budget def
+binder 2552:2552 <> b:22
+R2574:2576 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R2567:2573 void_probability_minimal Void_Probability_Minimal FinProb def
+R2577:2582 void_finite_minimal <> Budget def
+R2596:2596 void_interference_routing <> b:22 var
+R2607:2608 void_finite_minimal <> fz constr
+R2613:2613 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2616:2617 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2620:2620 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2614:2615 void_interference_routing <> p1:20 var
+R2618:2619 void_finite_minimal <> fz constr
+R2626:2627 void_finite_minimal <> fs constr
+R2657:2658 void_interference_routing <> p1:20 var
+binder 2646:2647 <> n1:24
+binder 2650:2651 <> d1:25
+R2685:2686 void_interference_routing <> p2:21 var
+binder 2674:2675 <> n2:26
+binder 2678:2679 <> d2:27
+R2703:2710 void_finite_minimal <> fin_eq_b def
+R2712:2713 void_interference_routing <> d1:25 var
+R2715:2716 void_interference_routing <> d2:27 var
+R2734:2734 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2739:2740 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2743:2743 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2735:2738 Coq.Init.Datatypes <> true constr
+R2764:2770 void_arithmetic Void_Arithmetic add_fin def
+R2772:2773 void_interference_routing <> n1:24 var
+R2775:2776 void_interference_routing <> n2:26 var
+R2798:2798 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2802:2803 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2806:2806 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2811:2811 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2821:2822 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2825:2825 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2812:2812 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2816:2817 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2820:2820 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2818:2819 void_interference_routing <> d1:25 var
+R2849:2849 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2855:2856 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2859:2859 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2850:2854 Coq.Init.Datatypes <> false constr
+R2942:2949 void_arithmetic Void_Arithmetic mult_fin def
+R2951:2952 void_interference_routing <> n1:24 var
+R2954:2955 void_interference_routing <> d2:27 var
+R2977:2977 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2980:2981 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2984:2984 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3009:3016 void_arithmetic Void_Arithmetic mult_fin def
+R3018:3019 void_interference_routing <> n2:26 var
+R3021:3022 void_interference_routing <> d1:25 var
+R3048:3048 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3051:3052 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3055:3055 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3084:3090 void_arithmetic Void_Arithmetic add_fin def
+R3126:3126 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3132:3133 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3136:3136 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3169:3176 void_arithmetic Void_Arithmetic mult_fin def
+R3178:3179 void_interference_routing <> d1:25 var
+R3181:3182 void_interference_routing <> d2:27 var
+R3216:3216 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3222:3223 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3226:3226 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3231:3231 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3246:3247 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3250:3250 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3232:3232 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3238:3239 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3245:3245 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+def 3415:3425 Void_Interference_Routing dist_prob_b
+R3436:3442 void_probability_minimal Void_Probability_Minimal FinProb def
+binder 3428:3429 <> p1:28
+binder 3431:3432 <> p2:29
+R3450:3455 void_finite_minimal <> Budget def
+binder 3446:3446 <> b:30
+R3468:3470 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R3461:3467 void_probability_minimal Void_Probability_Minimal FinProb def
+R3471:3476 void_finite_minimal <> Budget def
+R3490:3490 void_interference_routing <> b:30 var
+R3501:3502 void_finite_minimal <> fz constr
+R3507:3507 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3510:3511 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3514:3514 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3508:3509 void_interference_routing <> p1:28 var
+R3512:3513 void_finite_minimal <> fz constr
+R3520:3521 void_finite_minimal <> fs constr
+R3541:3550 void_finite_minimal <> dist_fin_b def
+R3553:3555 Coq.Init.Datatypes <> fst def
+R3557:3558 void_interference_routing <> p1:28 var
+R3562:3564 Coq.Init.Datatypes <> fst def
+R3566:3567 void_interference_routing <> p2:29 var
+R3586:3586 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3591:3592 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3595:3595 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3616:3624 void_finite_minimal <> max_fin_b def
+R3627:3629 Coq.Init.Datatypes <> snd def
+R3631:3632 void_interference_routing <> p1:28 var
+R3636:3638 Coq.Init.Datatypes <> snd def
+R3640:3641 void_interference_routing <> p2:29 var
+R3664:3664 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3670:3671 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3674:3674 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3679:3679 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3693:3694 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3697:3697 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3680:3680 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3685:3686 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3692:3692 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+def 3787:3796 Void_Interference_Routing avg_prob_b
+R3807:3813 void_probability_minimal Void_Probability_Minimal FinProb def
+binder 3799:3800 <> p1:32
+binder 3802:3803 <> p2:33
+R3821:3826 void_finite_minimal <> Budget def
+binder 3817:3817 <> b:34
+R3839:3841 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R3832:3838 void_probability_minimal Void_Probability_Minimal FinProb def
+R3842:3847 void_finite_minimal <> Budget def
+R3861:3861 void_interference_routing <> b:34 var
+R3872:3873 void_finite_minimal <> fz constr
+R3878:3878 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3881:3882 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3885:3885 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3879:3880 void_interference_routing <> p1:32 var
+R3883:3884 void_finite_minimal <> fz constr
+R3891:3892 void_finite_minimal <> fs constr
+R3912:3921 void_interference_routing Void_Interference_Routing add_prob_b def
+R3923:3924 void_interference_routing <> p1:32 var
+R3926:3927 void_interference_routing <> p2:33 var
+R3945:3945 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3960:3961 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3964:3964 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3946:3946 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3952:3953 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3959:3959 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3985:3991 void_arithmetic Void_Arithmetic add_fin def
+R4025:4025 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4034:4035 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4038:4038 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4043:4043 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4061:4062 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4065:4065 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4044:4044 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4050:4051 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4060:4060 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+def 4147:4155 Void_Interference_Routing nth_fin_b
+binder 4158:4158 <> A:36
+R4173:4176 Coq.Init.Datatypes <> list ind
+R4178:4178 void_interference_routing <> A:36 var
+binder 4169:4169 <> l:37
+R4186:4188 void_finite_minimal <> Fin ind
+binder 4182:4182 <> n:38
+R4196:4201 void_finite_minimal <> Budget def
+binder 4192:4192 <> b:39
+R4218:4220 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R4210:4215 Coq.Init.Datatypes <> option ind
+R4217:4217 void_interference_routing <> A:36 var
+R4221:4226 void_finite_minimal <> Budget def
+R4246:4246 void_interference_routing <> b:39 var
+R4243:4243 void_interference_routing <> n:38 var
+R4240:4240 void_interference_routing <> l:37 var
+R4257:4258 Coq.Lists.List ListNotations ::list_scope:'['_']' not
+R4269:4269 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4274:4275 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4277:4277 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4270:4273 Coq.Init.Datatypes <> None constr
+R4276:4276 void_interference_routing <> b:39 var
+R4289:4290 void_finite_minimal <> fz constr
+R4295:4295 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4300:4301 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4304:4304 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4296:4299 Coq.Init.Datatypes <> None constr
+R4302:4303 void_finite_minimal <> fz constr
+R4311:4314 Coq.Init.Datatypes <> ::list_scope:x_'::'_x not
+R4318:4319 void_finite_minimal <> fz constr
+R4322:4323 void_finite_minimal <> fs constr
+R4331:4331 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4338:4339 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4342:4342 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4332:4335 Coq.Init.Datatypes <> Some constr
+R4349:4352 Coq.Init.Datatypes <> ::list_scope:x_'::'_x not
+R4356:4357 void_finite_minimal <> fs constr
+R4363:4364 void_finite_minimal <> fs constr
+R4372:4380 void_interference_routing <> nth_fin_b:40 def
+def 4456:4470 Void_Interference_Routing find_position_b
+R4482:4484 void_finite_minimal <> Fin ind
+binder 4473:4478 <> target:44
+R4492:4495 Coq.Init.Datatypes <> list ind
+R4497:4499 void_finite_minimal <> Fin ind
+binder 4488:4488 <> l:45
+R4509:4511 void_finite_minimal <> Fin ind
+binder 4503:4505 <> pos:46
+R4519:4524 void_finite_minimal <> Budget def
+binder 4515:4515 <> b:47
+R4542:4544 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R4532:4537 Coq.Init.Datatypes <> option ind
+R4539:4541 void_finite_minimal <> Fin ind
+R4545:4550 void_finite_minimal <> Budget def
+R4567:4567 void_interference_routing <> b:47 var
+R4564:4564 void_interference_routing <> l:45 var
+R4578:4579 Coq.Lists.List ListNotations ::list_scope:'['_']' not
+R4587:4587 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4592:4593 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4595:4595 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4588:4591 Coq.Init.Datatypes <> None constr
+R4594:4594 void_interference_routing <> b:47 var
+R4604:4605 void_finite_minimal <> fz constr
+R4610:4610 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4615:4616 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4619:4619 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4611:4614 Coq.Init.Datatypes <> None constr
+R4617:4618 void_finite_minimal <> fz constr
+R4626:4629 Coq.Init.Datatypes <> ::list_scope:x_'::'_x not
+R4633:4634 void_finite_minimal <> fs constr
+R4654:4661 void_finite_minimal <> fin_eq_b def
+R4665:4670 void_interference_routing <> target:44 var
+R4688:4688 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4693:4694 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4698:4698 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4689:4692 Coq.Init.Datatypes <> true constr
+R4703:4703 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4712:4713 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4717:4717 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4704:4707 Coq.Init.Datatypes <> Some constr
+R4709:4711 void_interference_routing <> pos:46 var
+R4727:4727 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4733:4734 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4738:4738 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R4728:4732 Coq.Init.Datatypes <> false constr
+R4743:4757 void_interference_routing <> find_position_b:48 def
+R4769:4770 void_finite_minimal <> fs constr
+R4772:4774 void_interference_routing <> pos:46 var
+R4759:4764 void_interference_routing <> target:44 var
+def 5076:5084 Void_Interference_Routing weak_prob
+R5088:5094 void_probability_minimal Void_Probability_Minimal FinProb def
+R5099:5099 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5105:5106 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5122:5122 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5100:5101 void_finite_minimal <> fs constr
+R5103:5104 void_finite_minimal <> fz constr
+R5107:5108 void_finite_minimal <> fs constr
+R5111:5112 void_finite_minimal <> fs constr
+R5115:5116 void_finite_minimal <> fs constr
+R5118:5119 void_finite_minimal <> fz constr
+def 5136:5144 Void_Interference_Routing half_prob
+R5148:5154 void_probability_minimal Void_Probability_Minimal FinProb def
+R5159:5159 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5165:5166 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5177:5177 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5160:5161 void_finite_minimal <> fs constr
+R5163:5164 void_finite_minimal <> fz constr
+R5167:5168 void_finite_minimal <> fs constr
+R5171:5172 void_finite_minimal <> fs constr
+R5174:5175 void_finite_minimal <> fz constr
+def 5240:5261 Void_Interference_Routing pattern_interference_b
+R5272:5278 void_pattern Void_Pattern Pattern rec
+binder 5264:5265 <> p1:51
+binder 5267:5268 <> p2:52
+R5288:5290 void_finite_minimal <> Fin ind
+binder 5282:5284 <> loc:53
+R5298:5303 void_finite_minimal <> Budget def
+binder 5294:5294 <> b:54
+R5318:5320 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R5311:5317 void_probability_minimal Void_Probability_Minimal FinProb def
+R5321:5326 void_finite_minimal <> Budget def
+R5340:5340 void_interference_routing <> b:54 var
+R5351:5352 void_finite_minimal <> fz constr
+R5357:5357 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5367:5368 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5371:5371 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5358:5366 void_interference_routing Void_Interference_Routing weak_prob def
+R5369:5370 void_finite_minimal <> fz constr
+R5377:5378 void_finite_minimal <> fs constr
+R5398:5407 void_finite_minimal <> dist_fin_b def
+R5410:5417 void_pattern Void_Pattern location proj
+R5419:5420 void_interference_routing <> p1:51 var
+R5423:5425 void_interference_routing <> loc:53 var
+R5443:5443 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5446:5447 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5450:5450 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5471:5480 void_finite_minimal <> dist_fin_b def
+R5483:5490 void_pattern Void_Pattern location proj
+R5492:5493 void_interference_routing <> p2:52 var
+R5496:5498 void_interference_routing <> loc:53 var
+R5520:5520 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5523:5524 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5527:5527 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5552:5559 void_finite_minimal <> le_fin_b def
+R5565:5566 void_finite_minimal <> fs constr
+R5568:5569 void_finite_minimal <> fz constr
+R5596:5596 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5603:5604 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5607:5607 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5636:5643 void_finite_minimal <> le_fin_b def
+R5649:5650 void_finite_minimal <> fs constr
+R5652:5653 void_finite_minimal <> fz constr
+R5684:5684 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5691:5692 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5695:5695 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5772:5775 Coq.Init.Datatypes <> true constr
+R5778:5781 Coq.Init.Datatypes <> true constr
+R5831:5840 void_interference_routing Void_Interference_Routing add_prob_b def
+R5843:5850 void_pattern Void_Pattern strength proj
+R5852:5853 void_interference_routing <> p1:51 var
+R5857:5864 void_pattern Void_Pattern strength proj
+R5866:5867 void_interference_routing <> p2:52 var
+R5897:5900 Coq.Init.Datatypes <> true constr
+R5903:5907 Coq.Init.Datatypes <> false constr
+R5959:5959 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5971:5972 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5975:5975 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R5960:5967 void_pattern Void_Pattern strength proj
+R5969:5970 void_interference_routing <> p1:51 var
+R6001:6005 Coq.Init.Datatypes <> false constr
+R6008:6011 Coq.Init.Datatypes <> true constr
+R6063:6063 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6075:6076 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6079:6079 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6064:6071 void_pattern Void_Pattern strength proj
+R6073:6074 void_interference_routing <> p2:52 var
+R6105:6109 Coq.Init.Datatypes <> false constr
+R6112:6116 Coq.Init.Datatypes <> false constr
+R6162:6162 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6172:6173 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6176:6176 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6163:6171 void_interference_routing Void_Interference_Routing weak_prob def
+def 6353:6375 Void_Interference_Routing field_interference_at_b
+R6384:6386 void_finite_minimal <> Fin ind
+binder 6378:6380 <> loc:58
+R6398:6414 void_interference_routing Void_Interference_Routing InterferenceField rec
+binder 6390:6394 <> field:59
+R6429:6431 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R6422:6428 void_probability_minimal Void_Probability_Minimal FinProb def
+R6432:6437 void_finite_minimal <> Budget def
+R6473:6484 void_interference_routing Void_Interference_Routing field_budget proj
+R6486:6490 void_interference_routing <> field:59 var
+R6451:6464 void_interference_routing Void_Interference_Routing field_patterns proj
+R6466:6470 void_interference_routing <> field:59 var
+R6501:6502 Coq.Lists.List ListNotations ::list_scope:'['_']' not
+R6510:6510 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6520:6521 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6523:6523 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6511:6519 void_interference_routing Void_Interference_Routing weak_prob def
+R6532:6533 void_finite_minimal <> fz constr
+R6538:6538 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6548:6549 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6552:6552 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6539:6547 void_interference_routing Void_Interference_Routing weak_prob def
+R6550:6551 void_finite_minimal <> fz constr
+R6559:6562 Coq.Init.Datatypes <> ::list_scope:x_'::'_x not
+R6578:6586 Coq.Lists.List <> fold_left def
+R6972:6972 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6983:6984 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7003:7003 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6973:6980 void_pattern Void_Pattern strength proj
+R6985:6996 void_interference_routing Void_Interference_Routing field_budget proj
+R6998:7002 void_interference_routing <> field:59 var
+binder 6593:6595 <> acc:60
+binder 6597:6598 <> p':61
+R6617:6619 void_interference_routing <> acc:60 var
+R6636:6636 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6649:6650 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6656:6656 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6704:6705 void_finite_minimal <> fz constr
+R6710:6710 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6723:6724 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6727:6727 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6725:6726 void_finite_minimal <> fz constr
+R6770:6791 void_interference_routing Void_Interference_Routing pattern_interference_b def
+R6795:6796 void_interference_routing <> p':61 var
+R6798:6800 void_interference_routing <> loc:58 var
+R6831:6831 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6844:6845 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6848:6848 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6873:6882 void_interference_routing Void_Interference_Routing add_prob_b def
+def 7076:7101 Void_Interference_Routing find_interference_maxima_b
+R7112:7128 void_interference_routing Void_Interference_Routing InterferenceField rec
+binder 7104:7108 <> field:64
+R7156:7158 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R7136:7139 Coq.Init.Datatypes <> list ind
+R7145:7147 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R7142:7144 void_finite_minimal <> Fin ind
+R7148:7154 void_probability_minimal Void_Probability_Minimal FinProb def
+R7159:7164 void_finite_minimal <> Budget def
+R7178:7189 void_interference_routing Void_Interference_Routing field_budget proj
+R7191:7195 void_interference_routing <> field:64 var
+R7206:7207 void_finite_minimal <> fz constr
+R7212:7212 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7232:7233 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7236:7236 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7213:7225 void_interference_routing Void_Interference_Routing cached_maxima proj
+R7227:7231 void_interference_routing <> field:64 var
+R7234:7235 void_finite_minimal <> fz constr
+R7317:7325 Coq.Lists.List <> fold_left def
+R7721:7721 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7724:7725 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7744:7744 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7722:7723 Coq.Lists.List ListNotations ::list_scope:'['_']' not
+R7726:7737 void_interference_routing Void_Interference_Routing field_budget proj
+R7739:7743 void_interference_routing <> field:64 var
+R7704:7719 void_interference_routing Void_Interference_Routing sample_locations def
+binder 7332:7334 <> acc:65
+binder 7336:7338 <> loc:66
+R7357:7359 void_interference_routing <> acc:65 var
+R7376:7376 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7384:7385 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7391:7391 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7414:7436 void_interference_routing Void_Interference_Routing field_interference_at_b def
+R7438:7440 void_interference_routing <> loc:66 var
+R7466:7479 void_interference_routing Void_Interference_Routing field_patterns proj
+R7466:7479 void_interference_routing Void_Interference_Routing field_patterns proj
+R7466:7479 void_interference_routing Void_Interference_Routing field_patterns proj
+R7529:7540 void_interference_routing Void_Interference_Routing field_budget proj
+R7529:7540 void_interference_routing Void_Interference_Routing field_budget proj
+R7575:7587 void_interference_routing Void_Interference_Routing cached_maxima proj
+R7575:7587 void_interference_routing Void_Interference_Routing cached_maxima proj
+R7484:7497 void_interference_routing Void_Interference_Routing field_patterns proj
+R7499:7503 void_interference_routing <> field:64 var
+R7592:7593 Coq.Lists.List ListNotations ::list_scope:'['_']' not
+R7617:7617 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7626:7627 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7630:7630 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7635:7635 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7662:7663 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7666:7666 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7651:7654 Coq.Init.Datatypes <> ::list_scope:x_'::'_x not
+R7636:7636 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7640:7641 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7650:7650 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7637:7639 void_interference_routing <> loc:66 var
+binder 7295:7312 <> samples_and_budget:68
+R7762:7779 void_interference_routing <> samples_and_budget:68 var
+def 8096:8113 Void_Interference_Routing sort_by_distance_b
+R8124:8126 void_finite_minimal <> Fin ind
+binder 8116:8120 <> start:69
+R8137:8140 Coq.Init.Datatypes <> list ind
+R8146:8148 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R8143:8145 void_finite_minimal <> Fin ind
+R8149:8155 void_probability_minimal Void_Probability_Minimal FinProb def
+binder 8130:8133 <> locs:70
+R8164:8169 void_finite_minimal <> Budget def
+binder 8160:8160 <> b:71
+R8197:8199 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R8177:8180 Coq.Init.Datatypes <> list ind
+R8186:8188 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R8183:8185 void_finite_minimal <> Fin ind
+R8189:8195 void_probability_minimal Void_Probability_Minimal FinProb def
+R8200:8205 void_finite_minimal <> Budget def
+R8219:8219 void_interference_routing <> b:71 var
+R8230:8231 void_finite_minimal <> fz constr
+R8236:8236 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8241:8242 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8245:8245 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8237:8240 void_interference_routing <> locs:70 var
+R8243:8244 void_finite_minimal <> fz constr
+R8251:8252 void_finite_minimal <> fs constr
+R8260:8260 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8265:8266 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8269:8269 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8261:8264 void_interference_routing <> locs:70 var
+def 8364:8390 Void_Interference_Routing compute_interference_path_b
+R8398:8407 void_interference_routing Void_Interference_Routing WaveSurfer rec
+binder 8393:8394 <> ws:73
+R8419:8435 void_interference_routing Void_Interference_Routing InterferenceField rec
+binder 8411:8415 <> field:74
+R8451:8453 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R8443:8446 Coq.Init.Datatypes <> list ind
+R8448:8450 void_finite_minimal <> Fin ind
+R8454:8459 void_finite_minimal <> Budget def
+R8473:8483 void_interference_routing Void_Interference_Routing surf_budget proj
+R8485:8486 void_interference_routing <> ws:73 var
+R8497:8498 void_finite_minimal <> fz constr
+R8503:8503 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8506:8507 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8510:8510 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8504:8505 Coq.Lists.List ListNotations ::list_scope:'['_']' not
+R8508:8509 void_finite_minimal <> fz constr
+R8516:8517 void_finite_minimal <> fs constr
+R8537:8562 void_interference_routing Void_Interference_Routing find_interference_maxima_b def
+R8564:8568 void_interference_routing <> field:74 var
+R8583:8583 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8590:8591 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8594:8594 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8615:8632 void_interference_routing Void_Interference_Routing sort_by_distance_b def
+R8635:8642 void_pattern Void_Pattern location proj
+R8645:8658 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R8660:8661 void_interference_routing <> ws:73 var
+R8692:8692 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8699:8700 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8703:8703 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8722:8722 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8737:8738 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8741:8741 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R8723:8725 Coq.Lists.List <> map def
+R8727:8729 Coq.Init.Datatypes <> fst def
+def 9091:9109 Void_Interference_Routing surf_interference_b
+R9117:9126 void_interference_routing Void_Interference_Routing WaveSurfer rec
+binder 9112:9113 <> ws:75
+R9138:9154 void_interference_routing Void_Interference_Routing InterferenceField rec
+binder 9130:9134 <> field:76
+R9161:9170 void_interference_routing Void_Interference_Routing WaveSurfer rec
+R9183:9193 void_interference_routing Void_Interference_Routing surf_budget proj
+R9195:9196 void_interference_routing <> ws:75 var
+R9207:9208 void_finite_minimal <> fz constr
+R9213:9214 void_interference_routing <> ws:75 var
+R9220:9221 void_finite_minimal <> fs constr
+R9241:9267 void_interference_routing Void_Interference_Routing compute_interference_path_b def
+R9287:9300 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R9287:9300 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R9287:9300 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R9341:9351 void_interference_routing Void_Interference_Routing surf_budget proj
+R9341:9351 void_interference_routing Void_Interference_Routing surf_budget proj
+R9377:9384 void_interference_routing Void_Interference_Routing momentum proj
+R9377:9384 void_interference_routing Void_Interference_Routing momentum proj
+R9305:9318 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R9320:9321 void_interference_routing <> ws:75 var
+R9389:9396 void_interference_routing Void_Interference_Routing momentum proj
+R9398:9399 void_interference_routing <> ws:75 var
+R9404:9408 void_interference_routing <> field:76 var
+R9423:9423 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R9428:9429 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R9432:9432 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R9475:9476 Coq.Lists.List ListNotations ::list_scope:'['_']' not
+R9499:9512 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R9499:9512 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R9499:9512 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R9553:9563 void_interference_routing Void_Interference_Routing surf_budget proj
+R9553:9563 void_interference_routing Void_Interference_Routing surf_budget proj
+R9589:9596 void_interference_routing Void_Interference_Routing momentum proj
+R9589:9596 void_interference_routing Void_Interference_Routing momentum proj
+R9517:9530 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R9532:9533 void_interference_routing <> ws:75 var
+R9601:9608 void_interference_routing Void_Interference_Routing momentum proj
+R9610:9611 void_interference_routing <> ws:75 var
+R9632:9635 Coq.Init.Datatypes <> ::list_scope:x_'::'_x not
+R9661:9677 void_pattern Void_Pattern decay_with_budget def
+R9680:9687 void_pattern Void_Pattern strength proj
+R9690:9703 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R9705:9706 void_interference_routing <> ws:75 var
+R9734:9734 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R9747:9748 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R9751:9751 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R9777:9790 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R9777:9790 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R9777:9790 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R9907:9917 void_interference_routing Void_Interference_Routing surf_budget proj
+R9907:9917 void_interference_routing Void_Interference_Routing surf_budget proj
+R9947:9954 void_interference_routing Void_Interference_Routing momentum proj
+R9947:9954 void_interference_routing Void_Interference_Routing momentum proj
+R9798:9805 void_pattern Void_Pattern location proj
+R9798:9805 void_pattern Void_Pattern location proj
+R9798:9805 void_pattern Void_Pattern location proj
+R9857:9864 void_pattern Void_Pattern strength proj
+R9857:9864 void_pattern Void_Pattern strength proj
+R9959:9966 void_interference_routing Void_Interference_Routing momentum proj
+R9968:9969 void_interference_routing <> ws:75 var
+def 10079:10100 Void_Interference_Routing create_standing_wave_b
+R10111:10117 void_pattern Void_Pattern Pattern rec
+binder 10103:10104 <> p1:78
+binder 10106:10107 <> p2:79
+R10125:10130 void_finite_minimal <> Budget def
+binder 10121:10121 <> b:80
+R10150:10152 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R10138:10141 Coq.Init.Datatypes <> list ind
+R10143:10149 void_pattern Void_Pattern Pattern rec
+R10153:10158 void_finite_minimal <> Budget def
+R10172:10172 void_interference_routing <> b:80 var
+R10183:10184 void_finite_minimal <> fz constr
+R10189:10189 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10198:10199 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10202:10202 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10190:10190 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R10193:10194 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R10197:10197 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R10191:10192 void_interference_routing <> p1:78 var
+R10195:10196 void_interference_routing <> p2:79 var
+R10200:10201 void_finite_minimal <> fz constr
+R10208:10209 void_finite_minimal <> fs constr
+R10229:10235 void_arithmetic Void_Arithmetic add_fin def
+R10238:10245 void_pattern Void_Pattern location proj
+R10247:10248 void_interference_routing <> p1:78 var
+R10252:10259 void_pattern Void_Pattern location proj
+R10261:10262 void_interference_routing <> p2:79 var
+R10281:10281 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10285:10286 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10289:10289 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10310:10316 void_arithmetic Void_Arithmetic div_fin def
+R10323:10324 void_finite_minimal <> fs constr
+R10327:10328 void_finite_minimal <> fs constr
+R10330:10331 void_finite_minimal <> fz constr
+R10355:10355 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10359:10360 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10362:10363 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10366:10366 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10391:10400 void_interference_routing Void_Interference_Routing avg_prob_b def
+R10403:10410 void_pattern Void_Pattern strength proj
+R10412:10413 void_interference_routing <> p1:78 var
+R10417:10424 void_pattern Void_Pattern strength proj
+R10426:10427 void_interference_routing <> p2:79 var
+R10454:10454 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10468:10469 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10472:10472 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10495:10495 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10702:10703 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10706:10706 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10496:10499 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R10550:10577 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R10620:10647 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R10698:10701 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R10500:10507 void_pattern Void_Pattern location proj
+R10500:10507 void_pattern Void_Pattern location proj
+R10500:10507 void_pattern Void_Pattern location proj
+R10525:10532 void_pattern Void_Pattern strength proj
+R10525:10532 void_pattern Void_Pattern strength proj
+R10512:10519 void_pattern Void_Pattern location proj
+R10521:10522 void_interference_routing <> p1:78 var
+R10578:10585 void_pattern Void_Pattern location proj
+R10578:10585 void_pattern Void_Pattern location proj
+R10578:10585 void_pattern Void_Pattern location proj
+R10595:10602 void_pattern Void_Pattern strength proj
+R10595:10602 void_pattern Void_Pattern strength proj
+R10648:10655 void_pattern Void_Pattern location proj
+R10648:10655 void_pattern Void_Pattern location proj
+R10648:10655 void_pattern Void_Pattern location proj
+R10673:10680 void_pattern Void_Pattern strength proj
+R10673:10680 void_pattern Void_Pattern strength proj
+R10660:10667 void_pattern Void_Pattern location proj
+R10669:10670 void_interference_routing <> p2:79 var
+def 10812:10832 Void_Interference_Routing detect_wave_packets_b
+R10843:10859 void_interference_routing Void_Interference_Routing InterferenceField rec
+binder 10835:10839 <> field:82
+R10875:10881 void_probability_minimal Void_Probability_Minimal FinProb def
+binder 10863:10871 <> threshold:83
+R10904:10906 Coq.Init.Datatypes <> ::type_scope:x_'*'_x not
+R10889:10892 Coq.Init.Datatypes <> list ind
+R10894:10903 void_interference_routing Void_Interference_Routing WavePacket rec
+R10907:10912 void_finite_minimal <> Budget def
+R10926:10937 void_interference_routing Void_Interference_Routing field_budget proj
+R10939:10943 void_interference_routing <> field:82 var
+R10954:10955 void_finite_minimal <> fz constr
+R10960:10960 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10963:10964 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10967:10967 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R10961:10962 Coq.Lists.List ListNotations ::list_scope:'['_']' not
+R10965:10966 void_finite_minimal <> fz constr
+R10973:10974 void_finite_minimal <> fs constr
+R11029:11029 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R11141:11142 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R11145:11145 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R11030:11033 Coq.Lists.List ListNotations ::list_scope:'['_x_']' not
+R11137:11140 Coq.Lists.List ListNotations ::list_scope:'['_x_']' not
+R11034:11048 void_interference_routing Void_Interference_Routing packet_patterns proj
+R11034:11048 void_interference_routing Void_Interference_Routing packet_patterns proj
+R11034:11048 void_interference_routing Void_Interference_Routing packet_patterns proj
+R11086:11098 void_interference_routing Void_Interference_Routing packet_energy proj
+R11086:11098 void_interference_routing Void_Interference_Routing packet_energy proj
+R11118:11130 void_interference_routing Void_Interference_Routing packet_center proj
+R11118:11130 void_interference_routing Void_Interference_Routing packet_center proj
+R11053:11066 void_interference_routing Void_Interference_Routing field_patterns proj
+R11068:11072 void_interference_routing <> field:82 var
+R11135:11136 void_finite_minimal <> fz constr
+def 11215:11232 Void_Interference_Routing surf_uncertainty_b
+R11240:11249 void_interference_routing Void_Interference_Routing WaveSurfer rec
+binder 11235:11236 <> ws:84
+R11261:11277 void_interference_routing Void_Interference_Routing InterferenceField rec
+binder 11253:11257 <> field:85
+R11284:11293 void_interference_routing Void_Interference_Routing WaveSurfer rec
+R11306:11316 void_interference_routing Void_Interference_Routing surf_budget proj
+R11318:11319 void_interference_routing <> ws:84 var
+R11330:11331 void_finite_minimal <> fz constr
+R11336:11337 void_interference_routing <> ws:84 var
+R11343:11344 void_finite_minimal <> fs constr
+R11364:11379 void_interference_routing Void_Interference_Routing sample_locations def
+R11394:11395 Coq.Lists.List ListNotations ::list_scope:'['_']' not
+R11400:11401 void_interference_routing <> ws:84 var
+R11414:11417 Coq.Init.Datatypes <> ::list_scope:x_'::'_x not
+R11439:11455 void_pattern Void_Pattern decay_with_budget def
+R11458:11465 void_pattern Void_Pattern strength proj
+R11468:11481 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R11483:11484 void_interference_routing <> ws:84 var
+R11508:11508 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R11521:11522 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R11525:11525 Coq.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R11547:11560 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R11547:11560 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R11547:11560 void_interference_routing Void_Interference_Routing surfer_pattern proj
+R11668:11678 void_interference_routing Void_Interference_Routing surf_budget proj
+R11668:11678 void_interference_routing Void_Interference_Routing surf_budget proj
+R11704:11711 void_interference_routing Void_Interference_Routing momentum proj
+R11704:11711 void_interference_routing Void_Interference_Routing momentum proj
+R11568:11575 void_pattern Void_Pattern location proj
+R11568:11575 void_pattern Void_Pattern location proj
+R11568:11575 void_pattern Void_Pattern location proj
+R11622:11629 void_pattern Void_Pattern strength proj
+R11622:11629 void_pattern Void_Pattern strength proj
+R11716:11723 void_interference_routing Void_Interference_Routing momentum proj
+R11725:11726 void_interference_routing <> ws:84 var
+R13090:13114 void_interference_routing Void_Interference_Routing <> mod

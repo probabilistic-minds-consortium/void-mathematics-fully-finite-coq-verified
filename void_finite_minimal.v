@@ -1,6 +1,6 @@
 (******************************************************************************)
 (* void_finite_minimal.v                                                      *)
-(* TRULY finite - every operation costs                                       *)
+(* TRULY finite - every operation costs ONE TICK                             *)
 (* Bool3 core + backward-compatible bool wrappers                             *)
 (******************************************************************************)
 
@@ -18,8 +18,8 @@ Parameter MAX : Z.
 Axiom MAX_positive : (0 < MAX)%Z.
 
 (* System resolution - parameter, not computed *)
-Parameter Î¼_tick : Q.
-Axiom Î¼_tick_spec : Î¼_tick = 1#100.
+Parameter μ_tick : Q.
+Axiom μ_tick_spec : μ_tick = 1#100.
 
 (******************************************************************************)
 (* FINITE TYPE Fin                                                           *)
@@ -40,7 +40,7 @@ Fixpoint fin_to_Z_PROOF_ONLY (n : Fin) : Z :=
 Axiom fin_bounded : forall n : Fin, (fin_to_Z_PROOF_ONLY n <= MAX)%Z.
 
 (******************************************************************************)
-(* Fin â‰¤ and basic lemmas                                                    *)
+(* Fin ≤ and basic lemmas                                                    *)
 (******************************************************************************)
 
 Inductive leF : Fin -> Fin -> Prop :=
@@ -122,26 +122,22 @@ Definition spend (cost : Fin) : B unit :=
   fun b => let (b', h) := spend_aux b cost in (tt, b', h).
 
 (******************************************************************************)
-(* COSTS AS PARAMETERS - NOT CONSTRUCTED                                     *)
+(* THE ONE COST - Everything costs exactly one tick                          *)
 (******************************************************************************)
 
-Parameter comparison_cost : Fin.
-Parameter arithmetic_cost : Fin.
-Parameter construction_cost : Fin.
+Definition operation_cost : Fin := fs fz.  (* ONE TICK *)
 
-Axiom comparison_cost_positive   : exists n, comparison_cost = fs n.
-Axiom arithmetic_cost_positive   : exists n, arithmetic_cost = fs n.
-Axiom construction_cost_positive : exists n, construction_cost = fs n.
+(* No variations, no special cases, no magic numbers *)
 
 (******************************************************************************)
 (* BOOTSTRAP BUDGET                                                          *)
 (******************************************************************************)
 
 Parameter initial_budget : Budget.
-Axiom initial_budget_sufficient : exists n, initial_budget = fs (fs (fs n)).
+Axiom initial_budget_positive : exists n, initial_budget = fs n.
 
 (******************************************************************************)
-(* BUDGET-AWARE OPS (3-valued core) - WITH HEAT                            *)
+(* BUDGET-AWARE OPS (3-valued core) - ALL COST ONE TICK                     *)
 (******************************************************************************)
 
 Fixpoint fin_eq_b3 (n m : Fin) (b : Budget) : (Bool3 * Budget * Heat) :=
@@ -149,12 +145,12 @@ Fixpoint fin_eq_b3 (n m : Fin) (b : Budget) : (Bool3 * Budget * Heat) :=
   | fz => (BUnknown, fz, fz)
   | fs b' =>
       match n, m with
-      | fz, fz => (BTrue, b', fs fz)
+      | fz, fz => (BTrue, b', operation_cost)  (* One tick *)
       | fs n', fs m' =>
           match fin_eq_b3 n' m' b' with
           | (r, b'', h) => (r, b'', fs h)
           end
-      | _, _ => (BFalse, b', fs fz)
+      | _, _ => (BFalse, b', operation_cost)  (* One tick *)
       end
   end.
 
@@ -163,8 +159,8 @@ Fixpoint le_fin_b3 (n m : Fin) (b : Budget) : (Bool3 * Budget * Heat) :=
   | fz => (BUnknown, fz, fz)
   | fs b' =>
       match n, m with
-      | fz, _ => (BTrue, b', fs fz)
-      | fs _, fz => (BFalse, b', fs fz)
+      | fz, _ => (BTrue, b', operation_cost)  (* One tick *)
+      | fs _, fz => (BFalse, b', operation_cost)  (* One tick *)
       | fs n', fs m' =>
           match le_fin_b3 n' m' b' with
           | (r, b'', h) => (r, b'', fs h)
@@ -173,7 +169,7 @@ Fixpoint le_fin_b3 (n m : Fin) (b : Budget) : (Bool3 * Budget * Heat) :=
   end.
 
 (******************************************************************************)
-(* Collapse Unknownâ†’false (WITH HEAT)                                        *)
+(* Collapse Unknown→false (WITH HEAT)                                        *)
 (******************************************************************************)
 
 Definition collapse3 (r : Bool3) : bool :=
@@ -230,7 +226,7 @@ Definition max_fin_dec (n m : Fin) (b : Budget)
   end.
 
 (******************************************************************************)
-(* Arithmetic on Fin with budget/heat                                        *)
+(* Arithmetic on Fin with budget/heat - ALL COST ONE TICK PER STEP          *)
 (******************************************************************************)
 
 Fixpoint sub_saturate_b_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
@@ -238,8 +234,8 @@ Fixpoint sub_saturate_b_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
   | fz => (fz, fz, fz)
   | fs b' =>
       match n, m with
-      | _,  fz      => (n, b', fs fz)
-      | fz, _       => (fz, b', fs fz)
+      | _,  fz      => (n, b', operation_cost)
+      | fz, _       => (fz, b', operation_cost)
       | fs n', fs m' =>
           match sub_saturate_b_heat n' m' b' with
           | (r, b'', h) => (r, b'', fs h)
@@ -273,7 +269,7 @@ Definition dist_fin_b_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
 Definition safe_succ_b_heat (n : Fin) (b : Budget) : (Fin * Budget * Heat) :=
   match b with
   | fz => (n, fz, fz)
-  | fs b' => (fs n, b', fs fz)
+  | fs b' => (fs n, b', operation_cost)
   end.
 
 Fixpoint mult_fin_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
@@ -331,7 +327,7 @@ Definition div_fin_heat (n m : Fin) (b : Budget) : (Fin * Fin * Budget * Heat) :
 Definition succ_with_heat (s : State) : (State * Heat) :=
   match s with
   | (n, fz) => ((n, fz), fz)
-  | (n, fs b') => ((fs n, b'), fs fz)
+  | (n, fs b') => ((fs n, b'), operation_cost)
   end.
 
 Fixpoint bounded_iter_with_heat (k : Fin) (f : State -> (State * Heat)) (s : State)
@@ -368,10 +364,7 @@ Fixpoint mk_fin_b_heat (n : nat) (b : Budget) : (Fin * Budget * Heat) :=
       end
   end.
 
-Definition make_two_heat   (b : Budget) : (Fin * Budget * Heat) := mk_fin_b_heat 2 b.
-Definition make_three_heat (b : Budget) : (Fin * Budget * Heat) := mk_fin_b_heat 3 b.
-Definition make_five_heat  (b : Budget) : (Fin * Budget * Heat) := mk_fin_b_heat 5 b.
-Definition make_ten_heat   (b : Budget) : (Fin * Budget * Heat) := mk_fin_b_heat 10 b.
+(* No special constructors - just use mk_fin_b_heat directly when needed *)
 
 (******************************************************************************)
 (* BACKWARD COMPATIBILITY - Operations that return pairs, not triples        *)
@@ -443,11 +436,6 @@ Definition mk_fin_b (n : nat) (b : Budget) : (Fin * Budget) :=
 Definition fin_from_nat_b (n : nat) (b : Budget) : (Fin * Budget) :=
   mk_fin_b n b.
 
-Definition make_two   (b : Budget) : (Fin * Budget) := mk_fin_b 2 b.
-Definition make_three (b : Budget) : (Fin * Budget) := mk_fin_b 3 b.
-Definition make_five  (b : Budget) : (Fin * Budget) := mk_fin_b 5 b.
-Definition make_ten   (b : Budget) : (Fin * Budget) := mk_fin_b 10 b.
-
 (******************************************************************************)
 (* STATE TRANSITIONS (no heat)                                              *)
 (******************************************************************************)
@@ -496,7 +484,6 @@ Definition max_fin (n m : Fin) : Fin :=
 Definition fin_eq_LEGACY := fin_eq.
 Definition le_fin_LEGACY := le_fin.
 Definition add_simple_LEGACY := add_simple.
-
 
 (******************************************************************************)
 (* HEAT CONSERVATION LAW - As fundamental axiom                              *)

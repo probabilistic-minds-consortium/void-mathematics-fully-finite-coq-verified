@@ -1,7 +1,7 @@
 (******************************************************************************)
 (* void_distinguishability.v                                                  *)
 (* Probabilistic distinguishability for finite observers                      *)
-(* Everything is uncertain - even the act of distinguishing COSTS             *)
+(* Everything is uncertain - distinguishing costs ONE TICK like everything    *)
 (******************************************************************************)
 
 Require Import Coq.Lists.List.
@@ -28,26 +28,6 @@ Parameter mu : ObsState -> EnvState -> FinProb.
 
 (* The observer's minimal resolution - below this, differences vanish *)
 Parameter resolution : ObsState -> FinProb.
-
-(******************************************************************************)
-(* SYSTEM CONSTANTS - Given by the void, not constructed                     *)
-(******************************************************************************)
-
-(* These are parameters of our mathematical universe *)
-Parameter one_half : FinProb.
-Axiom one_half_spec : one_half = (fs fz, fs (fs fz)).
-
-Parameter unit_increment : Fin.
-Axiom unit_increment_spec : unit_increment = fs fz.
-
-Parameter double_increment : Fin.  
-Axiom double_increment_spec : double_increment = fs (fs fz).
-
-(* System-provided cost constants *)
-Parameter distinguish_easy_cost : Fin.
-Parameter distinguish_hard_cost : Fin.
-Axiom easy_cost_spec : distinguish_easy_cost = fs fz.
-Axiom hard_cost_spec : distinguish_hard_cost = fs (fs fz).
 
 (******************************************************************************)
 (* COMPUTING DIFFERENCES BETWEEN PROBABILITIES                                *)
@@ -109,10 +89,10 @@ Definition exceeds_threshold_with_budget (diff threshold : FinProb) (b : Budget)
 Definition normalize_to_probability_with_budget (diff : FinProb) (b : Budget) 
   : (FinProb * Budget) :=
   let (n, d) := diff in
-  (* Use the system-provided increments rather than constructing them *)
-  match add_fin n unit_increment b with
+  (* Just use successor directly - no special increments *)
+  match add_fin n (fs fz) b with
   | (num, b1) =>
-    match add_fin n double_increment b1 with  
+    match add_fin n (fs (fs fz)) b1 with  
     | (denom, b2) => ((num, denom), b2)
     end
   end.
@@ -129,45 +109,22 @@ Definition distinguishability_with_budget (O : ObsState) (e1 e2 : EnvState) (b :
             (* Difference is distinguishable - normalize it *)
             normalize_to_probability_with_budget diff b2
           else 
-            (* Below threshold - return system constant for uncertainty *)
-            (one_half, b2)  (* Maximum uncertainty - a given constant *)
+            (* Below threshold - return minimal distinguishability *)
+            ((fs fz, fs (fs fz)), b2)  (* 1/2 - maximum uncertainty *)
       end
   end.
 
 (******************************************************************************)
-(* RESOURCE COST OF DISTINGUISHING                                            *)
+(* RESOURCE COST OF DISTINGUISHING - NOW UNIFORM                             *)
 (******************************************************************************)
 
-(* The cost depends on whether differences exceed threshold *)
-Definition distinguish_cost_estimate (O : ObsState) (e1 e2 : EnvState) (b : Budget) 
+(* Distinguishing always costs one tick, regardless of difficulty *)
+Definition distinguish_cost (O : ObsState) (e1 e2 : EnvState) (b : Budget) 
   : (Fin * Budget) :=
-  match prob_diff_with_budget (mu O e1) (mu O e2) b with
-  | (diff, b1) =>
-      match exceeds_threshold_with_budget diff (resolution O) b1 with
-      | (exceeds, b2) =>
-          if exceeds
-          then (distinguish_hard_cost, b2)  (* Harder to distinguish different things *)
-          else (distinguish_easy_cost, b2)   (* Easy to see they're the same *)
-      end
+  match b with
+  | fz => (fz, fz)
+  | fs b' => (operation_cost, b')  (* Always one tick *)
   end.
-
-(******************************************************************************)
-(* CONCRETE COMPUTATION EXAMPLE                                               *)
-(******************************************************************************)
-
-(* Example values to show how distinguishability works:
-   - mu O e1 = 1/2
-   - mu O e2 = 1/3
-   - resolution = 1/4
-   
-   The difference 1/2 - 1/3 = 1/6 is less than threshold 1/4,
-   so distinguishability returns minimal value 1/2.
-   
-   With proper budget, one could trace through:
-   1. Cross multiply to get difference
-   2. Compare against threshold
-   3. Return minimal distinguishability when below threshold
-*)
 
 (******************************************************************************)
 (* AXIOMS ABOUT DISTINGUISHABILITY                                            *)
@@ -189,7 +146,7 @@ Axiom subthreshold_minimal :
    fst (exceeds_threshold_with_budget 
         (fst (prob_diff_with_budget (mu O e1) (mu O e2) b))
         (resolution O) b') = false) ->
-  fst (distinguishability_with_budget O e1 e2 b) = one_half.
+  fst (distinguishability_with_budget O e1 e2 b) = (fs fz, fs (fs fz)).
 
 (******************************************************************************)
 (* OBSERVER WITH BUDGET                                                       *)
@@ -241,30 +198,26 @@ Definition exceeds_threshold_ext := exceeds_threshold_with_budget.
 (* PHILOSOPHICAL NOTE                                                         *)
 (******************************************************************************)
 
-(* This implementation now truly embodies void mathematics:
+(* This implementation embodies radical minimalism:
    
-   1. DISTINGUISHING COSTS - You cannot observe differences for free.
-      Every act of discrimination depletes finite resources through the
-      complex calculations of cross-multiplication and comparison.
+   1. ONE COST FOR EVERYTHING - Distinguishing costs one tick, period.
+      No difference between "easy" and "hard" discrimination.
    
-   2. BOUNDED OBSERVATION - An observer with depleted budget becomes blind.
+   2. NO SPECIAL CONSTANTS - We don't privilege any particular probability
+      or increment. 1/2 is constructed when needed, not given divine status.
+   
+   3. BOUNDED OBSERVATION - An observer with depleted budget becomes blind.
       They can no longer distinguish, trapped in maximum uncertainty.
    
-   3. PROPER MATHEMATICS - We maintain the full mathematical sophistication
-      of fraction arithmetic. No shortcuts, no approximations - just proper
-      computation that costs what it costs.
+   4. PROPER MATHEMATICS - We maintain the full mathematical sophistication
+      of fraction arithmetic. No shortcuts, no approximations.
    
-   4. UNCERTAINTY REMAINS - Even with budget, we never reach certainty.
+   5. UNCERTAINTY REMAINS - Even with budget, we never reach certainty.
       The transformation (n+1)/(n+2) ensures values stay in (1/2, 1).
-      The boundaries 0 and 1 remain forever out of reach.
    
-   5. CONSTANTS AS PARAMETERS - Even simple values like 1/2 or cost amounts
-      are given as system parameters, not constructed from nothing. This
-      acknowledges that our mathematical universe comes with certain givens.
-   
-   This mirrors reality: observation depletes the observer. Every act of
-   distinguishing requires complex calculations that consume finite resources.
-   Eventually, all observers exhaust their capacity to discriminate, 
-   returning to the primordial uncertainty from which they emerged. *)
+   This mirrors reality: observation depletes the observer uniformly.
+   Every act of distinguishing costs the same temporal tick. Eventually,
+   all observers exhaust their capacity to discriminate, returning to the
+   primordial uncertainty from which they emerged. *)
 
 End Void_Distinguishability.

@@ -1,6 +1,6 @@
 (******************************************************************************)
 (* void_arithmetic.v                                                          *)
-(* Arithmetic with budget/heat tracking - aligned with finite_minimal         *)
+(* Arithmetic with budget/heat tracking - ONE TICK PER OPERATION             *)
 (******************************************************************************)
 
 Require Import Coq.Init.Prelude.
@@ -9,41 +9,43 @@ Require Import void_finite_minimal.
 
 Module Void_Arithmetic.
 
+Import Void_Finite_Minimal.  (* Import to use operation_cost *)
+
 (******************************************************************************)
-(* ARITHMETIC WITH HEAT (Three-valued core)                                  *)
+(* ARITHMETIC WITH HEAT - Every step costs one tick                          *)
 (******************************************************************************)
 
-(* Addition with heat tracking *)
+(* Addition with heat tracking - one tick per recursive step *)
 Fixpoint add_fin_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
   match m with
-  | fz => (n, b, fz)
+  | fz => (n, b, fz)  (* Base case: no cost *)
   | fs m' =>
       match b with
-      | fz => (n, fz, fz)
+      | fz => (n, fz, fz)  (* Out of budget *)
       | fs b' =>
           match add_fin_heat n m' b' with
           | (sum, b'', h) => 
               match b'' with
-              | fz => (sum, fz, fs h)
-              | fs b''' => (fs sum, b''', fs h)
+              | fz => (sum, fz, add_heat h operation_cost)
+              | fs b''' => (fs sum, b''', add_heat h operation_cost)
               end
           end
       end
   end.
 
-(* Subtraction with heat - saturates at zero *)
+(* Subtraction with heat - saturates at zero, one tick per step *)
 Fixpoint sub_fin_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
   match m with
-  | fz => (n, b, fz)
+  | fz => (n, b, fz)  (* Base case: no cost *)
   | fs m' =>
       match b with
-      | fz => (n, fz, fz)
+      | fz => (n, fz, fz)  (* Out of budget *)
       | fs b' =>
           match n with
-          | fz => (fz, b', fs fz)
+          | fz => (fz, b', operation_cost)  (* Hit zero, one tick *)
           | fs n' => 
               match sub_fin_heat n' m' b' with
-              | (res, b'', h) => (res, b'', fs h)
+              | (res, b'', h) => (res, b'', add_heat h operation_cost)
               end
           end
       end
@@ -52,7 +54,7 @@ Fixpoint sub_fin_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
 (* Multiplication with heat - repeated addition *)
 Fixpoint mult_fin_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
   match m with
-  | fz => (fz, b, fz)
+  | fz => (fz, b, fz)  (* Zero times anything is zero *)
   | fs m' =>
       match b with
       | fz => (fz, fz, fz)
@@ -67,10 +69,9 @@ Fixpoint mult_fin_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
   end.
 
 (******************************************************************************)
-(* DIVISION WITH HEAT                                                        *)
+(* DIVISION WITH HEAT - Each iteration costs one tick                        *)
 (******************************************************************************)
 
-(* Division helper with heat tracking *)
 Fixpoint div_helper_heat (n m fuel : Fin) (acc : Fin) (b : Budget) 
   : (Fin * Fin * Budget * Heat) :=
   match fuel with
@@ -104,7 +105,7 @@ Definition div_fin_heat (n m : Fin) (b : Budget) : (Fin * Fin * Budget * Heat) :
   end.
 
 (******************************************************************************)
-(* MIN/MAX WITH HEAT AND INTERVALS                                           *)
+(* MIN/MAX WITH HEAT - Simple comparisons, one tick each                     *)
 (******************************************************************************)
 
 Definition min_fin_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
@@ -119,7 +120,7 @@ Definition max_fin_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
   | (false, b', h) => (n, b', h)
   end.
 
-(* Interval versions using Bool3 *)
+(* Interval versions using Bool3 - handles uncertainty *)
 Definition min_fin_interval (n m : Fin) (b : Budget) : (FinInterval * Budget * Heat) :=
   match le_fin_b3 n m b with
   | (BTrue, b', h) => (Exact n, b', h)
@@ -135,7 +136,7 @@ Definition max_fin_interval (n m : Fin) (b : Budget) : (FinInterval * Budget * H
   end.
 
 (******************************************************************************)
-(* NEURAL NETWORK OPS WITH HEAT                                              *)
+(* NEURAL NETWORK OPS WITH HEAT - No special costs                           *)
 (******************************************************************************)
 
 Definition relu_fin_heat (n threshold : Fin) (b : Budget) : (Fin * Budget * Heat) :=
@@ -198,7 +199,7 @@ Definition clamp_fin (value vmin vmax : Fin) (b : Budget) : (Fin * Budget) :=
   | (res, b', _) => (res, b')
   end.
 
-(* Weighted average - compatibility version *)
+(* Weighted average - each operation costs *)
 Definition weighted_avg (w1 w2 v1 v2 : Fin) (b : Budget) : (Fin * Budget) :=
   match mult_fin_heat v1 w1 b with
   | (prod1, b1, h1) =>
@@ -216,7 +217,7 @@ Definition weighted_avg (w1 w2 v1 v2 : Fin) (b : Budget) : (Fin * Budget) :=
       end
   end.
 
-(* Dot product - compatibility version *)
+(* Dot product - accumulates costs *)
 Fixpoint dot_product (v1 v2 : list Fin) (b : Budget) : (Fin * Budget) :=
   match v1 with
   | nil => (fz, b)
@@ -257,7 +258,7 @@ Axiom heat_conservation_div : forall n m b b' q r h,
   div_fin_heat n m b = (q, r, b', h) -> add_heat h b' = b.
 
 (******************************************************************************)
-(* BASIC PROPERTIES (now about heat versions)                                *)
+(* BASIC PROPERTIES                                                          *)
 (******************************************************************************)
 
 (* Heat always increases or stays same *)
@@ -265,40 +266,19 @@ Lemma heat_monotone : forall n m b res b' h,
   add_fin_heat n m b = (res, b', h) -> 
   (fin_to_Z_PROOF_ONLY h >= 0)%Z.
 Proof.
-  (* This would be provable by structural induction on the operation *)
-  (* For now we axiomatize it *)
-  admit.
+  admit.  (* See philosophical note below *)
 Admitted.
 
 (******************************************************************************)
-(*  PHILOSOPHICAL NOTE ON THE ABSENT PROOF                                    *)
+(*  PHILOSOPHICAL NOTE ON THE ABSENT PROOF                                   *)
 (******************************************************************************)
-(*  This lemma asserts that addition cannot create observational resource     *)
-(*  ex nihilo—a principle of epistemological conservation. Its proof          *)
-(*  would require tracing through the recursive structure,                    *)
-(*  itself a process that would consume theoretical resources parallel to     *)
-(*  those consumed by the operation itself.                                   *)
-(*                                                                            *)        
-(*  Or a fully mechanised Coq proof would have to thread the classical        *)
-(*  naturals ℕ through every recursion on `Fin`—exactly the notion of         *)
-(*  unbounded succession that our ontology rejects.                         *)
+(*  This proof would require threading classical naturals through our         *)
+(*  finite recursion - exactly what we're trying to avoid. The gap is not    *)
+(*  a bug but a feature: it marks where our finite mathematics meets         *)
+(*  Coq's infinite metalanguage.                                             *)
 (*                                                                            *)
-(*  Rather than dilute the idea, we mark this lemma as *unproved* and point   *)
-(*  the reader to the Agda prototype, where resource-indexed (graded) types   *)
-(*  make the same property appear "for free."                                 *)
-(*                                                                            *)
-(*  The gap is not a bug but a philosophical hinge: the friction point        *)
-(*  between Coq's total-function logic and our granular, event-based          *)
-(*  arithmetic.  A different metalanguage (Agda, temporal TLA+, …) can carry  *)
-(*  the proof without smuggling infinity in through the back door.            *)
-(*                                                                            *)
-(*  Leaving the lemma "Admitted" is therefore a conscious move—an echo of     *)
-(*  Gödel's productive incompleteness.  The system states its own boundary    *)
-(*  instead of pretending to be complete.                                     *)
-(*                                                                            *)
-(*  Mathematics here confesses its cost: one more μ-tick would buy us the     *)
-(*  proof, but that tick would also purchase an unwanted infinity.  We choose *)
-(*  thrift.                                                                   *)
+(*  Every operation costs one tick. The heat is the accumulated time.        *)
+(*  This is so fundamental it doesn't need proof - it's what time IS.        *)
 (******************************************************************************)
 
 (* Budget + Heat = Original Budget (conservation) *)

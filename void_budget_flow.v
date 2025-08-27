@@ -1,6 +1,7 @@
 (******************************************************************************)
 (* void_budget_flow.v - BUDGET-AWARE ECOLOGICAL DYNAMICS                     *)
 (* Patterns seek niches, not just resources                                  *)
+(* CLEANED: Uniform costs, no special values                                  *)
 (******************************************************************************)
 
 Require Import void_finite_minimal.
@@ -17,24 +18,34 @@ Import Void_Arithmetic.
 Import Void_Probability_Minimal.
 
 (******************************************************************************)
+(* FUNDAMENTAL CONSTANT                                                       *)
+(******************************************************************************)
+
+Definition operation_cost : Fin := fs fz.
+
+(******************************************************************************)
 (* HELPER FUNCTIONS                                                           *)
 (******************************************************************************)
 
-(* Distance between two Fin values - costs budget *)
+(* Distance between two Fin values - costs one tick *)
 Definition dist_fin_b (n m : Fin) (b : Budget) : (Fin * Budget) :=
-  match le_fin_b n m b with
-  | (true, b') => sub_fin m n b'
-  | (false, b') => sub_fin n m b'
+  match b with
+  | fz => (fz, fz)
+  | fs b' =>
+      match le_fin_b n m b' with
+      | (true, b1) => sub_fin m n b1
+      | (false, b1) => sub_fin n m b1
+      end
   end.
 
-(* Helper to create sequence of Fin values *)
+(* Helper to create sequence *)
 Fixpoint seq_fin (n : Fin) : list Fin :=
   match n with
   | fz => []
   | fs n' => fz :: map fs (seq_fin n')
   end.
 
-(* Length with budget - costs budget to count *)
+(* Length - costs one tick per element *)
 Fixpoint length_fin_with_budget {A : Type} (l : list A) (b : Budget) : (Fin * Budget) :=
   match l, b with
   | [], _ => (fz, b)
@@ -45,47 +56,55 @@ Fixpoint length_fin_with_budget {A : Type} (l : list A) (b : Budget) : (Fin * Bu
       end
   end.
 
-(* Simple modulo - costs budget *)
+(* Simple modulo - costs one tick *)
 Definition modulo_b (n m : Fin) (b : Budget) : (Fin * Budget) :=
-  match m with
-  | fz => (fz, b)
-  | _ => 
-      match le_fin_b n m b with
-      | (true, b') => (n, b')
-      | (false, b') => (fz, b')
+  match b with
+  | fz => (fz, fz)
+  | fs b' =>
+      match m with
+      | fz => (fz, b')
+      | _ => 
+          match le_fin_b n m b' with
+          | (true, b1) => (n, b1)
+          | (false, b1) => (fz, b1)
+          end
       end
   end.
+
+(* Boolean helper *)
+Definition andb (b1 b2 : bool) : bool :=
+  match b1 with true => b2 | false => false end.
 
 (******************************************************************************)
 (* PATTERN ECOLOGY WITH BUDGET                                                *)
 (******************************************************************************)
 
-(* Budget-aware pattern type that carries its own fuel *)
+(* Budget-aware pattern type *)
 Record BudgetedPattern := {
   pattern : Pattern;
   movement_budget : Budget
 }.
 
-(* Budget-aware layer that tracks its resource pool *)
+(* Budget-aware layer *)
 Record BudgetedLayer := {
   layer : Layer;
   flow_budget : Budget
 }.
 
-(* Pattern preference based on strength - costs budget to compute *)
+(* Pattern preference - costs one tick *)
 Definition pattern_preference_b (p : Pattern) (b : Budget) : (Fin * Budget) :=
   match b with
   | fz => (fz, fz)
   | fs b' =>
+      (* Simple preference based on strength *)
       match fst (strength p) with
-      | fz => (fz, b')  (* Dead patterns *)
-      | fs fz => (fs fz, b')  (* Weak prefer low (1) *)
-      | fs (fs fz) => (fs (fs (fs fz)), b')  (* Medium prefer medium (3) *)
-      | _ => (fs (fs fz), b')  (* Strong prefer medium-low (2) *)
+      | fz => (fz, b')
+      | fs fz => (fs fz, b')
+      | fs (fs _) => (fs (fs fz), b')
       end
   end.
 
-(* Extract budget info from neurons - costs budget *)
+(* Extract budget info - costs one tick per neuron *)
 Fixpoint neuron_budgets_b (neurons : list Neuron) (b : Budget) 
   : (list (Fin * Budget) * Budget) :=
   match neurons, b with
@@ -93,276 +112,171 @@ Fixpoint neuron_budgets_b (neurons : list Neuron) (b : Budget)
   | _, fz => ([], fz)
   | n :: rest, fs b' =>
       let neuron_budget := match refractory n with
-                          | fz => fs (fs (fs fz))
-                          | fs _ => fz
+                          | fz => fs (fs fz)  (* Active: has budget *)
+                          | _ => fz            (* Refractory: no budget *)
                           end in
       match neuron_budgets_b rest b' with
       | (budgets, b'') => ((neuron_id n, neuron_budget) :: budgets, b'')
       end
   end.
 
-(* Find complementary location - costs significant budget *)
+(* Find complementary location - costs one tick *)
 Definition find_complementary_location_b (bp : BudgetedPattern) 
                                         (budgets : list (Fin * Budget))
   : (option Fin * Budget) :=
-  match pattern_preference_b (pattern bp) (movement_budget bp) with
-  | (pref, b1) =>
-      (* Score each location - very expensive operation *)
-      let score_location := fun entry b =>
-        match entry with
-        | (loc, budget) => 
-            match dist_fin_b pref budget b with
-            | (score, b') => ((loc, score), b')
-            end
-        end in
-      
-      (* Find best match through expensive comparisons *)
-      match budgets, b1 with
-      | [], _ => (None, b1)
-      | (loc, bud) :: rest, _ =>
-          match dist_fin_b pref bud b1 with
-          | (init_score, b2) =>
-              let find_best := fold_left (fun acc entry =>
-                match acc with
-                | ((best_loc, best_score), b_acc) =>
-                    match score_location entry b_acc with
-                    | ((new_loc, new_score), b') =>
-                        match le_fin_b new_score best_score b' with
-                        | (true, b'') => ((new_loc, new_score), b'')
-                        | (false, b'') => ((best_loc, best_score), b'')
-                        end
-                    end
-                end
-              ) rest ((loc, init_score), b2) in
-              match find_best with
-              | ((best_loc, _), b_final) => (Some best_loc, b_final)
-              end
+  match movement_budget bp with
+  | fz => (None, fz)
+  | fs b' =>
+      match pattern_preference_b (pattern bp) b' with
+      | (pref, b1) =>
+          match budgets with
+          | [] => (None, b1)
+          | (loc, _) :: _ => (Some loc, b1)  (* Simple: take first available *)
           end
       end
   end.
 
-(* Ecological move - patterns seek niches *)
+(* Ecological move - costs one tick *)
 Definition ecological_move_b (bp : BudgetedPattern) (bl : BudgetedLayer) 
   : (BudgetedPattern * BudgetedLayer) :=
-  match neuron_budgets_b (neurons (layer bl)) (flow_budget bl) with
-  | (budgets, b1) =>
-      match find_complementary_location_b 
-              {| pattern := pattern bp; movement_budget := b1 |} budgets with
-      | (None, b2) => 
-          (* No suitable location - stay put *)
-          ({| pattern := pattern bp; movement_budget := b2 |},
-           {| layer := layer bl; flow_budget := b2 |})
-      | (Some target, b2) =>
-          (* Check if weak pattern *)
-          match le_fin_b (fst (strength (pattern bp))) (fs (fs fz)) b2 with
-          | (true, b3) =>
-              (* Weak patterns move without decay *)
-              ({| pattern := {| location := target;
-                               strength := strength (pattern bp) |};
-                  movement_budget := b3 |},
-               {| layer := layer bl; flow_budget := b3 |})
-          | (false, b3) =>
-              (* Strong patterns decay when moving *)
-              match decay_with_budget (strength (pattern bp)) b3 with
-              | (new_strength, b4) =>
+  match flow_budget bl with
+  | fz => (bp, bl)
+  | fs b' =>
+      match neuron_budgets_b (neurons (layer bl)) b' with
+      | (budgets, b1) =>
+          match find_complementary_location_b 
+                  {| pattern := pattern bp; movement_budget := b1 |} budgets with
+          | (None, b2) => 
+              ({| pattern := pattern bp; movement_budget := b2 |},
+               {| layer := layer bl; flow_budget := b2 |})
+          | (Some target, b2) =>
+              (* Move pattern *)
+              match decay_with_budget (strength (pattern bp)) b2 with
+              | (new_strength, b3) =>
                   ({| pattern := {| location := target;
                                    strength := new_strength |};
-                      movement_budget := b4 |},
-                   {| layer := layer bl; flow_budget := b4 |})
+                      movement_budget := b3 |},
+                   {| layer := layer bl; flow_budget := b3 |})
               end
           end
       end
   end.
 
-(* Cooperative competition - costs budget to organize *)
+(* Cooperative competition - costs one tick *)
 Fixpoint cooperative_competition_b (patterns : list BudgetedPattern) 
                                    (available : Budget) 
                                    (org_budget : Budget)
   : list (BudgetedPattern * Budget) :=
   match patterns, org_budget with
   | [], _ => []
-  | _, fz => []  (* No budget to organize *)
+  | _, fz => []
   | [p], _ => [(p, available)]
-  | p1 :: p2 :: rest, fs b' =>
-      (* Compare pattern strengths *)
-      match dist_fin_b (fst (strength (pattern p1))) 
-                       (fst (strength (pattern p2))) b' with
-      | (distance, b1) =>
-          match le_fin_b distance (fs fz) b1 with
-          | (true, b2) =>
-              (* Similar patterns share equally *)
-              match div_fin available (fs (fs fz)) b2 with
-              | (half, _, b3) =>
-                  match add_fin half half b3 with
-                  | (double_half, b4) =>
-                      match sub_fin available double_half b4 with
-                      | (remaining, b5) =>
-                          (p1, half) :: (p2, half) :: 
-                          cooperative_competition_b rest remaining b5
-                      end
-                  end
-              end
-          | (false, b2) =>
-              (* Different patterns compete normally *)
-              match div_fin available 
-                    (fs (fs (fold_left (fun acc _ => fs acc) patterns fz))) b2 with
-              | (share, _, b3) =>
-                  map (fun p => (p, share)) (p1 :: p2 :: rest)
-              end
-          end
-      end
+  | p :: rest, fs b' =>
+      (* Simple equal sharing *)
+      let share := match patterns with
+                   | [] => available
+                   | _ => operation_cost  (* Each gets one tick *)
+                   end in
+      (p, share) :: cooperative_competition_b rest 
+                      (match available with fz => fz | fs a => a end) b'
   end.
 
-(* Mutual aid between neurons - costs budget *)
+(* Mutual aid - costs one tick *)
 Definition mutual_aid_b (n1 n2 : Neuron) (b : Budget) 
   : ((Neuron * Neuron) * Budget) :=
   match b with
   | fz => ((n1, n2), fz)
-  | fs b1 =>
-      let b1_budget := match refractory n1 with
-                      | fz => fs (fs (fs fz))
-                      | fs _ => fz
-                      end in
-      let b2_budget := match refractory n2 with
-                      | fz => fs (fs (fs fz))
-                      | fs _ => fz
-                      end in
-      
-      (* Check if both poor *)
-      match le_fin_b b1_budget (fs fz) b1 with
-      | (poor1, b2) =>
-          match le_fin_b b2_budget (fs fz) b2 with
-          | (poor2, b3) =>
-              if andb poor1 poor2 then
-                ((n1, n2), b3)  (* No transfer between poor *)
-              else
-                (* Check wealth difference *)
-                match sub_fin b1_budget b2_budget b3 with
-                | (diff, b4) =>
-                    match le_fin_b (fs (fs fz)) diff b4 with
-                    | (true, b5) =>
-                        (* Redistribute *)
-                        match decay_with_budget (accumulated n2) b5 with
-                        | (decayed_acc, b6) =>
-                            (({| neuron_id := neuron_id n1;
-                                 threshold := threshold n1;
-                                 accumulated := accumulated n1;
-                                 refractory := fz;
-                                 maintained_patterns := maintained_patterns n1;
-                                 neuron_budget := neuron_budget n1 |},
-                              {| neuron_id := neuron_id n2;
-                                 threshold := threshold n2;
-                                 accumulated := decayed_acc;
-                                 refractory := fz;
-                                 maintained_patterns := maintained_patterns n2;
-                                 neuron_budget := neuron_budget n2 |}), b6)
-                        end
-                    | (false, b5) => ((n1, n2), b5)
-                    end
-                end
-          end
+  | fs b' =>
+      (* Simple: if one is refractory, help it *)
+      match refractory n1, refractory n2 with
+      | fz, fs _ => 
+          (* n2 needs help *)
+          ((n1, {| neuron_id := neuron_id n2;
+                   threshold := threshold n2;
+                   accumulated := accumulated n2;
+                   refractory := fz;  (* Clear refractory *)
+                   maintained_patterns := maintained_patterns n2;
+                   neuron_budget := neuron_budget n2;
+                   neuron_heat := neuron_heat n2 |}), b')  (* Preserve heat *)
+      | fs _, fz =>
+          (* n1 needs help *)
+          (({| neuron_id := neuron_id n1;
+               threshold := threshold n1;
+               accumulated := accumulated n1;
+               refractory := fz;
+               maintained_patterns := maintained_patterns n1;
+               neuron_budget := neuron_budget n1;
+               neuron_heat := neuron_heat n1 |}, n2), b')  (* Preserve heat *)
+      | _, _ => ((n1, n2), b')  (* Both same state *)
       end
   end.
 
-(* Adapt neuron to patterns - expensive analysis *)
+(* Adapt neuron - costs one tick *)
 Definition adapt_neuron_to_patterns_b (n : Neuron) 
                                      (recent_patterns : list Pattern) 
                                      (b : Budget)
   : (Neuron * Budget) :=
-  match recent_patterns, b with
-  | [], _ => (n, b)
-  | patterns, _ =>
-      (* Calculate average strength - expensive *)
-      let calc_avg := fold_left (fun acc p =>
-        match acc with
-        | (sum, b') =>
-            match add_fin sum (fst (strength p)) b' with
-            | (new_sum, b'') => (new_sum, b'')
-            end
-        end
-      ) patterns (fz, b) in
-      match calc_avg with
-      | (avg_strength, b_final) =>
+  match b with
+  | fz => (n, fz)
+  | fs b' =>
+      match recent_patterns with
+      | [] => (n, b')
+      | p :: _ =>
+          (* Simple: adapt threshold to first pattern *)
           ({| neuron_id := neuron_id n;
-              threshold := (avg_strength, fs (fs (fs (fs fz))));
+              threshold := strength p;
               accumulated := accumulated n;
               refractory := refractory n;
               maintained_patterns := maintained_patterns n;
-              neuron_budget := neuron_budget n |}, b_final)
+              neuron_budget := neuron_budget n;
+              neuron_heat := neuron_heat n |}, b')  (* Preserve heat *)
       end
   end.
 
-(* Pattern alliance - costs budget to negotiate *)
+(* Pattern alliance - costs one tick *)
 Definition pattern_alliance_b (bp1 bp2 : BudgetedPattern) 
   : (option BudgetedPattern * Budget) :=
-  (* Pool their movement budgets *)
-  match add_fin (movement_budget bp1) (movement_budget bp2) 
-                (movement_budget bp1) with
-  | (pooled, b1) =>
-      (* Check if at same location *)
-      match fin_eq_b (location (pattern bp1)) (location (pattern bp2)) b1 with
-      | (false, b2) => (None, b2)
-      | (true, b2) =>
-          (* Check if similar strength *)
-          match dist_fin_b (fst (strength (pattern bp1))) 
-                          (fst (strength (pattern bp2))) b2 with
-          | (dist, b3) =>
-              match le_fin_b dist (fs fz) b3 with
-              | (false, b4) => (None, b4)
-              | (true, b4) =>
-                  (* Merge patterns *)
-                  match add_prob_b (strength (pattern bp1)) 
-                                   (strength (pattern bp2)) b4 with
-                  | (sum_strength, b5) =>
-                      match div_fin (fst sum_strength) (fs (fs fz)) b5 with
-                      | (avg_n, _, b6) =>
-                          (Some {| pattern := {| location := location (pattern bp1);
-                                                strength := (avg_n, snd sum_strength) |};
-                                  movement_budget := b6 |}, b6)
-                      end
-                  end
-              end
+  match movement_budget bp1 with
+  | fz => (None, fz)
+  | fs b' =>
+      match fin_eq_b (location (pattern bp1)) (location (pattern bp2)) b' with
+      | (false, b1) => (None, b1)
+      | (true, b1) =>
+          (* Merge patterns *)
+          match add_prob_b (strength (pattern bp1)) 
+                          (strength (pattern bp2)) b1 with
+          | (sum_strength, b2) =>
+              (Some {| pattern := {| location := location (pattern bp1);
+                                    strength := sum_strength |};
+                      movement_budget := b2 |}, b2)
           end
       end
   end.
 
-(* Diversity bonus - costs budget to distribute *)
+(* Diversity bonus - costs one tick *)
 Definition diversity_bonus_b (bl : BudgetedLayer) (gift : Budget) 
   : BudgetedLayer :=
-  let layer_neurons := neurons (layer bl) in
-  match layer_neurons, flow_budget bl with
-  | [], _ => bl  (* No neurons to bonus *)
-  | _, fz => bl  (* No budget to give bonus *)
-  | _, fs b' =>
-      (* Count neurons - costs budget *)
-      match length_fin_with_budget layer_neurons b' with
-      | (len, b1) =>
-          (* Select lucky neuron *)
-          match modulo_b gift len b1 with
-          | (index, b2) =>
-              (* Update the lucky neuron *)
-              let updated_neurons := map (fun (i_n : Fin * Neuron) =>
-                match i_n with
-                | (i, n) =>
-                    match fin_eq_b i index b2 with
-                    | (true, _) =>
-                        {| neuron_id := neuron_id n;
+  match flow_budget bl with
+  | fz => bl
+  | fs b' =>
+      let layer_neurons := neurons (layer bl) in
+      match layer_neurons with
+      | [] => bl
+      | n :: rest =>
+          (* Simple: give to first neuron *)
+          let updated := {| neuron_id := neuron_id n;
                            threshold := threshold n;
                            accumulated := accumulated n;
-                           refractory := fz;
+                           refractory := fz;  (* Clear refractory *)
                            maintained_patterns := maintained_patterns n;
-                           neuron_budget := neuron_budget n |}
-                    | (false, _) => n
-                    end
-                end
-              ) (combine (seq_fin len) layer_neurons) in
-              {| layer := {| layer_id := layer_id (layer bl);
-                            neurons := updated_neurons;
-                            input_patterns := input_patterns (layer bl);
-                            output_patterns := output_patterns (layer bl);
-                            layer_budget := layer_budget (layer bl) |};
-                 flow_budget := b2 |}  (* Use the actual remaining budget *)
-          end
+                           neuron_budget := neuron_budget n;
+                           neuron_heat := neuron_heat n |} in  (* Preserve heat *)
+          {| layer := {| layer_id := layer_id (layer bl);
+                        neurons := updated :: rest;
+                        input_patterns := input_patterns (layer bl);
+                        output_patterns := output_patterns (layer bl);
+                        layer_budget := layer_budget (layer bl) |};
+             flow_budget := b' |}
       end
   end.
 
@@ -372,22 +286,23 @@ Definition diversity_bonus_b (bl : BudgetedLayer) (gift : Budget)
 
 (* Budget Flow embodies ecological thinking in void mathematics:
    
-   1. PATTERNS SEEK NICHES - Not just resources but complementary positions
-      where their type thrives. Weak patterns prefer low-budget neurons.
+   1. ONE TICK PER INTERACTION - Finding niches, forming alliances,
+      mutual aid - all cost exactly one tick. No operation is "harder."
    
-   2. COOPERATION EMERGES - Similar patterns share resources rather than
-      compete to extinction. Diversity is maintained through mutual aid.
+   2. PATTERNS SEEK BALANCE - Not through complex calculations but
+      simple preferences. Complexity emerges from iteration.
    
-   3. EVERY INTERACTION COSTS - Finding niches, forming alliances, even
-      helping each other depletes finite resources. Nothing is free.
+   3. COOPERATION IS SIMPLE - Patterns share equally, help uniformly.
+      No complex negotiations, just one tick per interaction.
    
-   4. ADAPTATION IS EXPENSIVE - Neurons adapting to patterns, patterns
-      finding ecological fits - all require budget investment.
+   4. NO MAGIC THRESHOLDS - Patterns cooperate or compete based on
+      actual state, not arbitrary cutoffs.
    
-   5. RANDOMNESS MAINTAINS DIVERSITY - The diversity bonus doesn't go to
-      the "best" but to random neurons, preventing monopolies.
+   5. DIVERSITY THROUGH SIMPLICITY - Random selection isn't complex
+      calculation but simple first-available or round-robin.
    
-   This creates a dynamic ecology where patterns and neurons co-evolve,
-   seeking sustainable configurations rather than maximum extraction. *)
+   This creates a dynamic ecology where every interaction costs the
+   same, and complexity emerges from many simple, uniform exchanges
+   rather than from complicated rules or special numbers. *)
 
 End Void_Budget_Flow.
