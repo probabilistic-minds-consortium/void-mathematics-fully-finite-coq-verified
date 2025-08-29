@@ -148,6 +148,21 @@ Definition near_basis_vector_b (dim : Fin) (component : Fin) (b : Budget)
 (* VECTOR OPERATIONS WITH BUDGET                                             *)
 (******************************************************************************)
 
+(* Check if two probabilities are equal - costs one tick *)
+Definition prob_eq_b (p1 p2 : FinProb) (b : Budget) : (bool * Budget) :=
+  match b with
+  | fz => (false, fz)
+  | fs b' =>
+      let (n1, d1) := p1 in
+      let (n2, d2) := p2 in
+      match fin_eq_b n1 n2 b' with
+      | (eq_n, b'') =>
+          match fin_eq_b d1 d2 b'' with
+          | (eq_d, b''') => (andb eq_n eq_d, b''')
+          end
+      end
+  end.
+
 (* Vector equality check - costs one tick per component *)
 Fixpoint vectors_equal_b (v1 v2 : VoidVector) (b : Budget) 
   : (bool * Budget) :=
@@ -160,6 +175,36 @@ Fixpoint vectors_equal_b (v1 v2 : VoidVector) (b : Budget)
       match prob_eq_b p1 p2 b' with
       | (true, b'') => vectors_equal_b v1' v2' b''
       | (false, b'') => (false, b'')
+      end
+  end.
+
+(* Add probabilities with budget - costs one tick *)
+Definition add_prob_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
+  match b with
+  | fz => (p1, fz)
+  | fs b' =>
+      let (n1, d1) := p1 in
+      let (n2, d2) := p2 in
+      match fin_eq_b d1 d2 b' with
+      | (true, b1) =>
+          (* Same denominator - just add numerators *)
+          match add_fin n1 n2 b1 with
+          | (sum, b2) => ((sum, d1), b2)
+          end
+      | (false, b1) =>
+          (* Different denominators - cross multiplication *)
+          match mult_fin n1 d2 b1 with
+          | (v1, b2) =>
+              match mult_fin n2 d1 b2 with
+              | (v2, b3) =>
+                  match add_fin v1 v2 b3 with
+                  | (new_n, b4) =>
+                      match mult_fin d1 d2 b4 with
+                      | (new_d, b5) => ((new_n, new_d), b5)
+                      end
+                  end
+              end
+          end
       end
   end.
 

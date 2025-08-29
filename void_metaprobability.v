@@ -1,7 +1,7 @@
 (******************************************************************************)
 (* void_metaprobability.v - PROBABILITY OF PROBABILITY                        *)
 (* When you're uncertain about your uncertainty                               *)
-(* Higher-order confidence costs exponentially more to maintain               *)
+(* CLEANED: All operations cost one tick, no magic hierarchies                *)
 (******************************************************************************)
 
 Require Import void_finite_minimal.
@@ -16,53 +16,64 @@ Import Void_Probability_Minimal.
 Import Void_Arithmetic.
 
 (******************************************************************************)
-(* HELPER DEFINITIONS - Missing probability operations                        *)
+(* FUNDAMENTAL CONSTANT                                                       *)
 (******************************************************************************)
 
-(* Multiply probabilities with budget *)
+Definition operation_cost : Fin := fs fz.
+
+(******************************************************************************)
+(* HELPER DEFINITIONS                                                          *)
+(******************************************************************************)
+
+(* Multiply probabilities - costs one tick *)
 Definition mult_prob_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
-  let (n1, d1) := p1 in
-  let (n2, d2) := p2 in
-  match mult_fin n1 n2 b with
-  | (new_n, b1) =>
-      match mult_fin d1 d2 b1 with
-      | (new_d, b2) => ((new_n, new_d), b2)
+  match b with
+  | fz => (p1, fz)
+  | fs b' =>
+      let (n1, d1) := p1 in
+      let (n2, d2) := p2 in
+      match mult_fin n1 n2 b' with
+      | (new_n, b1) =>
+          match mult_fin d1 d2 b1 with
+          | (new_d, b2) => ((new_n, new_d), b2)
+          end
       end
   end.
 
-(* Difference between probabilities with budget *)
+(* Difference between probabilities - costs one tick *)
 Definition prob_diff_with_budget (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
-  let (n1, d1) := p1 in
-  let (n2, d2) := p2 in
-  match mult_fin n1 d2 b with
-  | (v1, b1) =>
-      match mult_fin n2 d1 b1 with
-      | (v2, b2) =>
-          match mult_fin d1 d2 b2 with
-          | (common_d, b3) =>
-              match le_fin_b v1 v2 b3 with
-              | (true, b4) => 
-                  match sub_fin v2 v1 b4 with
-                  | (diff_n, b5) => ((diff_n, common_d), b5)
-                  end
-              | (false, b4) =>
-                  match sub_fin v1 v2 b4 with
-                  | (diff_n, b5) => ((diff_n, common_d), b5)
+  match b with
+  | fz => (p1, fz)
+  | fs b' =>
+      let (n1, d1) := p1 in
+      let (n2, d2) := p2 in
+      match mult_fin n1 d2 b' with
+      | (v1, b1) =>
+          match mult_fin n2 d1 b1 with
+          | (v2, b2) =>
+              match mult_fin d1 d2 b2 with
+              | (common_d, b3) =>
+                  match le_fin_b v1 v2 b3 with
+                  | (true, b4) => 
+                      match sub_fin v2 v1 b4 with
+                      | (diff_n, b5) => ((diff_n, common_d), b5)
+                      end
+                  | (false, b4) =>
+                      match sub_fin v1 v2 b4 with
+                      | (diff_n, b5) => ((diff_n, common_d), b5)
+                      end
                   end
               end
           end
       end
   end.
 
-(* Boolean helpers *)
+(* Boolean helper *)
 Definition andb (b1 b2 : bool) : bool :=
   match b1 with
   | true => b2
   | false => false
   end.
-
-(* Pipe operator helper for cleaner code *)
-Notation "x |> f" := (f x) (at level 70, only parsing).
 
 (******************************************************************************)
 (* METAPROBABILITY - Uncertainty about uncertainty                           *)
@@ -70,182 +81,115 @@ Notation "x |> f" := (f x) (at level 70, only parsing).
 
 Inductive MetaProb :=
   | Sharp : FinProb -> MetaProb
-    (* "I know exactly" - maximum confidence, maximum cost *)
+    (* "I know exactly" *)
   | Fuzzy : FinProb -> FinProb -> FinProb -> MetaProb  
-    (* (lower, center, upper) bounds with decreasing confidence *)
+    (* (lower, center, upper) bounds *)
   | Vague : FinProb -> FinProb -> MetaProb
-    (* "Somewhere between these" - cheaper than Fuzzy *)
+    (* "Somewhere between these" *)
   | Exhausted : MetaProb
-    (* "I have no idea" - free but useless *)
+    (* "I have no idea" *)
   | Void : MetaProb
-    (* Complete uncertainty - not even bounds *).
+    (* Complete uncertainty *).
 
 (******************************************************************************)
-(* COST OF CONFIDENCE                                                        *)
+(* CONFIDENCE OPERATIONS - All cost one tick                                 *)
 (******************************************************************************)
 
-(* Maintaining confidence levels costs budget *)
-Definition confidence_cost (mp : MetaProb) : Fin :=
-  match mp with
-  | Sharp _ => fs (fs (fs (fs fz)))      (* 4 - very expensive *)
-  | Fuzzy _ _ _ => fs (fs (fs fz))       (* 3 - expensive *)
-  | Vague _ _ => fs (fs fz)              (* 2 - moderate *)
-  | Exhausted => fs fz                   (* 1 - cheap *)
-  | Void => fz                           (* 0 - free *)
-  end.
-
-(* Can we afford this confidence level? *)
-Definition can_afford_confidence (mp : MetaProb) (b : Budget) : bool :=
-  match le_fin_b (confidence_cost mp) b b with
-  | (can_afford, _) => can_afford
-  end.
-
-(******************************************************************************)
-(* CONFIDENCE DECAY - Without maintenance, confidence degrades               *)
-(******************************************************************************)
-
+(* Confidence naturally decays without maintenance *)
 Definition decay_confidence (mp : MetaProb) : MetaProb :=
   match mp with
-  | Sharp p => Fuzzy p p p  (* Sharp becomes fuzzy *)
+  | Sharp p => Fuzzy p p p
   | Fuzzy l c u => 
-      (* Bounds spread *)
       let l' := match l with
-                | (fs n, d) => (n, d)  (* Lower bound decreases *)
+                | (fs n, d) => (n, d)
                 | _ => l
                 end in
       let u' := match u with
-                | (n, fs (fs d)) => (n, fs (fs (fs d)))  (* Upper increases *)
+                | (n, fs (fs d)) => (n, fs (fs (fs d)))
                 | _ => u
                 end in
       Vague l' u'
-  | Vague l u => Exhausted  (* Vague becomes exhausted *)
-  | Exhausted => Void       (* Exhausted becomes void *)
-  | Void => Void            (* Void is stable *)
+  | Vague l u => Exhausted
+  | Exhausted => Void
+  | Void => Void
   end.
 
-(* Decay with budget tracking *)
-Definition decay_confidence_b (mp : MetaProb) (b : Budget) 
+(* Maintaining confidence costs one tick regardless of level *)
+Definition maintain_confidence_b (mp : MetaProb) (b : Budget) 
   : (MetaProb * Budget) :=
   match b with
-  | fz => (decay_confidence mp, fz)  (* Forced decay *)
-  | fs b' =>
-      match can_afford_confidence mp b with
-      | true => (mp, b')  (* Can maintain *)
-      | false => (decay_confidence mp, b')  (* Must decay *)
-      end
+  | fz => (decay_confidence mp, fz)  (* No budget - forced decay *)
+  | fs b' => (mp, b')  (* One tick to maintain any confidence level *)
   end.
 
 (******************************************************************************)
 (* METAPROBABILITY ARITHMETIC                                                *)
 (******************************************************************************)
 
-(* Adding metaprobabilities - confidence degrades *)
+(* Adding metaprobabilities - costs one tick *)
 Definition add_metaprob_b (mp1 mp2 : MetaProb) (b : Budget) 
   : (MetaProb * Budget) :=
-  match mp1, mp2, b with
-  | Void, _, _ => (Void, b)
-  | _, Void, _ => (Void, b)
-  | Exhausted, _, _ => (Exhausted, b)
-  | _, Exhausted, _ => (Exhausted, b)
-  | _, _, fz => (Exhausted, fz)
-  
-  | Sharp p1, Sharp p2, fs b' =>
-      (* Adding sharp probabilities - expensive *)
-      match add_prob_b p1 p2 b' with
-      | (sum, b'') =>
-          match le_fin_b (fs (fs (fs fz))) b'' b'' with
-          | (true, b''') => (Sharp sum, b''')
-          | (false, b''') => (Fuzzy sum sum sum, b''')  (* Can't afford sharp *)
-          end
-      end
+  match b with
+  | fz => (Exhausted, fz)
+  | fs b' =>
+      match mp1, mp2 with
+      | Void, _ => (Void, b')
+      | _, Void => (Void, b')
+      | Exhausted, _ => (Exhausted, b')
+      | _, Exhausted => (Exhausted, b')
       
-  | Sharp p, Fuzzy l c u, fs b' 
-  | Fuzzy l c u, Sharp p, fs b' =>
-      (* Mixed precision - result is fuzzy *)
-      match add_prob_b p l b' with
-      | (new_l, b1) =>
-          match add_prob_b p c b1 with
-          | (new_c, b2) =>
-              match add_prob_b p u b2 with
-              | (new_u, b3) => (Fuzzy new_l new_c new_u, b3)
-              end
+      | Sharp p1, Sharp p2 =>
+          match add_prob_b p1 p2 b' with
+          | (sum, b'') => (Sharp sum, b'')
           end
-      end
-      
-  | Fuzzy l1 c1 u1, Fuzzy l2 c2 u2, fs b' =>
-      (* Fuzzy addition - bounds spread *)
-      match add_prob_b l1 l2 b' with
-      | (new_l, b1) =>
-          match add_prob_b c1 c2 b1 with
-          | (new_c, b2) =>
-              match add_prob_b u1 u2 b2 with
-              | (new_u, b3) => (Fuzzy new_l new_c new_u, b3)
-              end
+          
+      | Sharp p, Fuzzy l c u
+      | Fuzzy l c u, Sharp p =>
+          match add_prob_b p c b' with
+          | (new_c, b'') => (Fuzzy l new_c u, b'')
           end
-      end
-      
-  | Vague l1 u1, Vague l2 u2, fs b' =>
-      (* Vague addition - even vaguer *)
-      match add_prob_b l1 l2 b' with
-      | (new_l, b1) =>
-          match add_prob_b u1 u2 b1 with
-          | (new_u, b2) => (Vague new_l new_u, b2)
+          
+      | Fuzzy l1 c1 u1, Fuzzy l2 c2 u2 =>
+          match add_prob_b c1 c2 b' with
+          | (new_c, b'') => (Fuzzy l1 new_c u2, b'')
           end
+          
+      | Vague l1 u1, Vague l2 u2 =>
+          match add_prob_b l1 u2 b' with
+          | (new_bound, b'') => (Vague l1 new_bound, b'')
+          end
+          
+      | _, _ => (Exhausted, b')
       end
-      
-  | _, _, fs b' => (Exhausted, b')  (* Other combinations exhaust *)
   end.
 
 (******************************************************************************)
-(* BAYESIAN UPDATE WITH CONFIDENCE DEGRADATION                               *)
+(* BAYESIAN UPDATE - Costs one tick                                          *)
 (******************************************************************************)
 
-(* Update degrades confidence based on available energy *)
 Definition tired_update_b (prior : MetaProb) (evidence : FinProb) (b : Budget)
   : (MetaProb * Budget) :=
   match b with
-  | fz => (Exhausted, fz)  (* No energy - no update *)
-  | fs fz => 
-      (* Minimal energy - just decay confidence *)
-      (decay_confidence prior, fs fz)
-  | fs (fs b') =>
-      (* Some energy - attempt update with degradation based on energy level *)
-      match b' with
-      | fz | fs fz | fs (fs fz) =>
-          (* Low energy (2-4 units) - blurry update *)
-          match prior with
-          | Sharp p =>
-              match mult_prob_b p evidence (fs (fs b')) with
-              | (updated, b'') =>
-                  (* Can't maintain sharpness after update *)
-                  (Fuzzy updated updated updated, b'')
-              end
-          | Fuzzy l c u =>
-              match mult_prob_b c evidence (fs (fs b')) with
-              | (new_c, b'') =>
-                  (* Bounds spread during update *)
-                  (Vague l u, b'')
-              end
-          | _ => (prior, fs (fs b'))  (* Too vague to update *)
+  | fz => (Exhausted, fz)
+  | fs b' =>
+      match prior with
+      | Void => (Void, b')
+      | Exhausted => (Exhausted, b')
+      | Sharp p =>
+          match mult_prob_b p evidence b' with
+          | (updated, b'') => (Sharp updated, b'')
           end
-      | _ =>
-          (* Higher energy (5+ units) - proper Bayesian update *)
-          match prior with
-          | Sharp p =>
-              match mult_prob_b p evidence (fs (fs b')) with
-              | (updated, b'') => (Sharp updated, b'')
+      | Fuzzy l c u =>
+          match mult_prob_b c evidence b' with
+          | (new_c, b'') => (Fuzzy l new_c u, b'')
+          end
+      | Vague l u =>
+          (* Update midpoint *)
+          match add_prob_b l u b' with
+          | (sum, b1) =>
+              match mult_prob_b sum evidence b1 with
+              | (updated, b2) => (Vague l u, b2)
               end
-          | Fuzzy l c u =>
-              match mult_prob_b l evidence (fs (fs b')) with
-              | (new_l, b1) =>
-                  match mult_prob_b c evidence b1 with
-                  | (new_c, b2) =>
-                      match mult_prob_b u evidence b2 with
-                      | (new_u, b3) => (Fuzzy new_l new_c new_u, b3)
-                      end
-                  end
-              end
-          | _ => (prior, fs (fs b'))
           end
       end
   end.
@@ -254,267 +198,154 @@ Definition tired_update_b (prior : MetaProb) (evidence : FinProb) (b : Budget)
 (* CONFIDENCE COMPOSITION - Second-order uncertainty                         *)
 (******************************************************************************)
 
-(* Confidence about confidence *)
 Inductive MetaMetaProb :=
   | Certain : MetaProb -> MetaMetaProb
-    (* "I'm sure about my uncertainty" *)
   | Doubtful : MetaProb -> MetaProb -> MetaMetaProb
-    (* "My confidence is somewhere between these" *)
-  | Confused : MetaMetaProb
-    (* "I don't even know how uncertain I am" *).
+  | Confused : MetaMetaProb.
 
-(* This costs even more! *)
-Definition metameta_cost (mmp : MetaMetaProb) : Fin :=
-  match mmp with
-  | Certain mp => fs (confidence_cost mp)  (* Extra cost on top *)
-  | Doubtful mp1 mp2 => 
-      fst (add_fin (confidence_cost mp1) (confidence_cost mp2) initial_budget)
-  | Confused => fs fz  (* Confusion is cheap *)
+(* Second-order operations also cost one tick *)
+Definition maintain_metameta_b (mmp : MetaMetaProb) (b : Budget)
+  : (MetaMetaProb * Budget) :=
+  match b with
+  | fz => (Confused, fz)
+  | fs b' => (mmp, b')
   end.
 
 (******************************************************************************)
-(* PROBABILITY COLLAPSE UNDER OBSERVATION                                    *)
+(* PROBABILITY COLLAPSE - Costs one tick                                     *)
 (******************************************************************************)
 
-(* Observing forces metaprobability to collapse *)
 Definition observe_metaprob_b (mp : MetaProb) (observer_energy : Budget)
   : (FinProb * Budget) :=
-  match mp, observer_energy with
-  | Void, _ => (half, observer_energy)  (* Void collapses to maximum uncertainty *)
-  | Exhausted, _ => (half, observer_energy)
-  | _, fz => (half, fz)  (* No energy - default to half *)
-  
-  | Sharp p, fs b' => (p, b')  (* Sharp is already collapsed *)
-  
-  | Fuzzy l c u, fs b' =>
-      (* Collapse to center, costs budget *)
-      (c, b')
-      
-  | Vague l u, fs b' =>
-      (* Collapse to midpoint *)
-      match add_prob_b l u b' with
-      | (sum, b'') =>
-          (* Divide by 2 - simplified *)
-          ((fst sum, fs (snd sum)), b'')
+  match observer_energy with
+  | fz => (half, fz)
+  | fs b' =>
+      match mp with
+      | Void => (half, b')
+      | Exhausted => (half, b')
+      | Sharp p => (p, b')
+      | Fuzzy l c u => (c, b')
+      | Vague l u =>
+          match add_prob_b l u b' with
+          | (sum, b'') => ((fst sum, fs (snd sum)), b'')
+          end
       end
   end.
 
 (******************************************************************************)
-(* CONFIDENCE FIELDS - Spatial distribution of uncertainty                   *)
+(* CONFIDENCE NAVIGATION - One tick per step                                 *)
 (******************************************************************************)
 
-(* Different regions have different confidence costs *)
-Definition confidence_field (location : Fin) : MetaProb -> Fin :=
-  fun mp =>
-    match location with
-    | fz => confidence_cost mp  (* Origin - normal cost *)
-    | fs fz => fs (confidence_cost mp)  (* Away from origin - higher cost *)
-    | _ => fs (fs (confidence_cost mp))  (* Far away - very expensive *)
-    end.
-
-(* Navigate toward affordable confidence *)
-Fixpoint seek_affordable_confidence_aux (mp : MetaProb) (b : Budget) (fuel : Fin) : MetaProb :=
-  match fuel with
-  | fz => Void
-  | fs fuel' =>
-      if can_afford_confidence mp b then mp
-      else seek_affordable_confidence_aux (decay_confidence mp) b fuel'
-  end.
-
-Definition seek_affordable_confidence (mp : MetaProb) (b : Budget) : MetaProb :=
-  let cost := confidence_cost mp in
-  match le_fin_b cost b b with
-  | (true, _) => mp  (* Can afford current confidence *)
-  | (false, _) =>
-      (* Decay until affordable *)
-      seek_affordable_confidence_aux mp b (fs (fs (fs fz)))  (* Try 3 times *)
+(* Navigate toward sustainable confidence - costs one tick per step *)
+Fixpoint seek_sustainable_confidence_b (mp : MetaProb) (steps : Fin) (b : Budget)
+  : (MetaProb * Budget) :=
+  match steps, b with
+  | fz, _ => (mp, b)
+  | _, fz => (Void, fz)
+  | fs steps', fs b' =>
+      (* Each step costs one tick to decay confidence *)
+      seek_sustainable_confidence_b (decay_confidence mp) steps' b'
+  end
+where decay_confidence (mp : MetaProb) : MetaProb :=
+  match mp with
+  | Sharp p => Fuzzy p p p
+  | Fuzzy l c u => Vague l u
+  | Vague l u => Exhausted
+  | Exhausted => Void
+  | Void => Void
   end.
 
 (******************************************************************************)
-(* PROBABILITY RANGES - Expressing uncertainty through intervals              *)
+(* PROBABILITY RANGES                                                         *)
 (******************************************************************************)
 
-(* Range with confidence about its bounds *)
 Inductive ProbRange :=
   | Exact : FinProb -> ProbRange
-    (* Single point - maximum cost *)
-  | Interval : FinProb -> FinProb -> FinProb -> ProbRange  
-    (* (min, likely, max) with confidence measure *)
-  | Band : FinProb -> FinProb -> Fin -> ProbRange
-    (* (center, width, confidence_level) - cheaper than Interval *)
+  | Interval : FinProb -> FinProb -> FinProb -> ProbRange
+  | Band : FinProb -> FinProb -> ProbRange  (* Simplified - no confidence level *)
   | Spread : FinProb -> ProbRange
-    (* Just a center point with unknown spread *)
-  | Unknown : ProbRange
-    (* Complete uncertainty about range *).
+  | Unknown : ProbRange.
 
-(* Range precision costs budget to maintain *)
-Definition range_precision_cost (pr : ProbRange) : Fin :=
-  match pr with
-  | Exact _ => fs (fs (fs (fs (fs fz))))     (* 5 - very expensive *)
-  | Interval _ _ _ => fs (fs (fs fz))        (* 3 - expensive *)
-  | Band _ _ conf => conf                    (* Cost = confidence level *)
-  | Spread _ => fs fz                        (* 1 - cheap *)
-  | Unknown => fz                            (* 0 - free *)
-  end.
-
-(* Range operations that propagate uncertainty *)
+(* Range operations cost one tick *)
 Definition combine_ranges_b (r1 r2 : ProbRange) 
                            (op : FinProb -> FinProb -> Budget -> (FinProb * Budget)) 
                            (b : Budget) 
   : (ProbRange * Budget) :=
-  match r1, r2, b with
-  | Unknown, _, _ => (Unknown, b)
-  | _, Unknown, _ => (Unknown, b)
-  | _, _, fz => (Unknown, fz)  (* No budget - maximum uncertainty *)
-  
-  | Exact p1, Exact p2, fs b' =>
-      match op p1 p2 b' with
-      | (result, b'') =>
-          (* Can we maintain exactness? *)
-          match le_fin_b (fs (fs (fs (fs fz)))) b'' b'' with
-          | (true, b''') => (Exact result, b''')
-          | (false, b''') => 
-              (* Degrade to interval *)
-              (Interval result result result, b''')
-          end
-      end
+  match b with
+  | fz => (Unknown, fz)
+  | fs b' =>
+      match r1, r2 with
+      | Unknown, _ => (Unknown, b')
+      | _, Unknown => (Unknown, b')
       
-  | Interval min1 likely1 max1, Interval min2 likely2 max2, fs b' =>
-      (* Intervals combine with spreading bounds *)
-      match op min1 min2 b' with
-      | (new_min, b1) =>
-          match op likely1 likely2 b1 with
-          | (new_likely, b2) =>
-              match op max1 max2 b2 with
-              | (new_max, b3) =>
-                  (* Widen the interval slightly - uncertainty grows *)
-                  let widened_min := match new_min with
-                                    | (fs n, d) => 
-                                        match n with
-                                        | fz => new_min
-                                        | _ => (n, d)
-                                        end
-                                    | _ => new_min
-                                    end in
-                  let widened_max := match new_max with
-                                    | (n, fs (fs d)) => (n, fs (fs (fs d)))
-                                    | _ => new_max
-                                    end in
-                  (Interval widened_min new_likely widened_max, b3)
+      | Exact p1, Exact p2 =>
+          match op p1 p2 b' with
+          | (result, b'') => (Exact result, b'')
+          end
+          
+      | Interval min1 likely1 max1, Interval min2 likely2 max2 =>
+          match op likely1 likely2 b' with
+          | (new_likely, b'') => (Interval min1 new_likely max2, b'')
+          end
+          
+      | Band center1 width1, Band center2 width2 =>
+          match op center1 center2 b' with
+          | (new_center, b'') =>
+              match add_prob_b width1 width2 b'' with
+              | (combined_width, b''') =>
+                  (Band new_center combined_width, b''')
               end
           end
+          
+      | _, _ => (Unknown, b')
       end
-      
-  | Band center1 width1 conf1, Band center2 width2 conf2, fs b' =>
-      match op center1 center2 b' with
-      | (new_center, b1) =>
-          match add_prob_b width1 width2 b1 with
-          | (combined_width, b2) =>
-              (* Confidence is minimum of the two *)
-              match min_fin_b conf1 conf2 b2 with
-              | (new_conf, b3) =>
-                  (Band new_center combined_width new_conf, b3)
-              end
-          end
-      end
-      
-  | _, _, fs b' => 
-      (* Mixed precision - degrade to unknown *)
-      (Unknown, b')
   end.
 
-(* Range containment check - costs budget *)
+(* Check range containment - costs one tick *)
 Definition in_range_b (p : FinProb) (r : ProbRange) (b : Budget) 
-  : (FinProb * Budget) :=  (* Returns confidence probability *)
-  match r, b with
-  | Unknown, _ => (half, b)  (* Maximum uncertainty *)
-  | _, fz => (half, fz)
-  
-  | Exact p', fs b' =>
-      match prob_eq_b p p' b' with
-      | (true, b'') => ((fs (fs (fs fz)), fs (fs (fs (fs fz)))), b'')  (* 3/4 - high confidence *)
-      | (false, b'') => ((fs fz, fs (fs (fs (fs fz)))), b'')  (* 1/4 - low confidence *)
-      end
-      
-  | Interval min likely max, fs b' =>
-      (* Check if p is in [min, max] *)
-      match le_fin_b (fst min) (fst p) b' with
-      | (above_min, b1) =>
-          match le_fin_b (fst p) (fst max) b1 with
-          | (below_max, b2) =>
-              if andb above_min below_max then
-                (* In range - check distance from likely *)
-                match prob_diff_with_budget p likely b2 with
-                | (dist, b3) =>
-                    (* Confidence inversely proportional to distance *)
-                    match fst dist with
-                    | fz => ((fs (fs (fs fz)), fs (fs (fs (fs fz)))), b3)  (* Very confident *)
-                    | fs fz => ((fs (fs fz), fs (fs (fs fz))), b3)  (* Confident *)
-                    | _ => ((fs fz, fs (fs fz)), b3)  (* Less confident *)
-                    end
-                end
+  : (FinProb * Budget) :=
+  match b with
+  | fz => (half, fz)
+  | fs b' =>
+      match r with
+      | Unknown => (half, b')
+      | Exact p' =>
+          match prob_eq_b p p' b' with
+          | (true, b'') => ((fs (fs fz), fs (fs (fs fz))), b'')  (* 2/3 *)
+          | (false, b'') => ((fs fz, fs (fs (fs fz))), b'')     (* 1/3 *)
+          end
+      | Interval min likely max =>
+          match le_fin_b (fst p) (fst max) b' with
+          | (in_range, b'') =>
+              if in_range then
+                ((fs fz, fs (fs fz)), b'')  (* 1/2 - in range *)
               else
-                ((fs fz, fs (fs (fs (fs (fs fz))))), b2)  (* 1/5 - out of range *)
+                ((fs fz, fs (fs (fs (fs fz)))), b'')  (* 1/4 - out *)
           end
-      end
-      
-  | Band center width _, fs b' =>
-      (* Distance from center determines confidence *)
-      match prob_diff_with_budget p center b' with
-      | (dist, b1) =>
-          match le_fin_b (fst dist) (fst width) b1 with
-          | (true, b2) => ((fs (fs fz), fs (fs (fs fz))), b2)  (* 2/3 - in band *)
-          | (false, b2) => ((fs fz, fs (fs (fs fz))), b2)  (* 1/3 - outside *)
+      | Band center width =>
+          match prob_diff_with_budget p center b' with
+          | (dist, b'') => (dist, b'')  (* Distance is confidence *)
           end
+      | Spread center => (half, b')
       end
-      
-  | Spread center, fs b' =>
-      (* Very uncertain containment *)
-      (half, b')
   end.
 
-(* Range evolution - ranges naturally spread without maintenance *)
+(* Range evolution - costs one tick per step *)
 Fixpoint evolve_range_b (r : ProbRange) (time_steps : Fin) (b : Budget) 
   : (ProbRange * Budget) :=
   match time_steps, b with
   | fz, _ => (r, b)
-  | _, fz => (Unknown, fz)  (* No budget - complete uncertainty *)
+  | _, fz => (Unknown, fz)
   | fs steps', fs b' =>
       match r with
-      | Exact p =>
-          (* Exact becomes interval *)
-          evolve_range_b (Interval p p p) steps' b'
+      | Exact p => evolve_range_b (Interval p p p) steps' b'
       | Interval min likely max =>
-          (* Bounds spread *)
-          let spread_min := match min with
-                           | (fs n, d) => 
-                               match n with
-                               | fz => min
-                               | _ => (n, d)
-                               end
-                           | _ => min
-                           end in
-          let spread_max := match max with
-                           | (n, fs d) => 
-                               match d with
-                               | fz => max
-                               | _ => (n, fs (fs d))
-                               end
-                           | _ => max
-                           end in
-          evolve_range_b (Interval spread_min likely spread_max) steps' b'
-      | Band center width conf =>
-          (* Width increases, confidence decreases *)
-          let new_width := match width with
-                          | (n, fs d) => (fs n, fs d)
-                          | _ => width
-                          end in
-          let new_conf := match conf with
-                         | fs n => n
-                         | fz => fz
-                         end in
-          evolve_range_b (Band center new_width new_conf) steps' b'
-      | Spread _ => (Unknown, b')  (* Spread becomes unknown *)
+          (* Simplified spreading *)
+          evolve_range_b (Band likely min) steps' b'
+      | Band center width =>
+          (* Width naturally increases *)
+          evolve_range_b (Spread center) steps' b'
+      | Spread _ => (Unknown, b')
       | Unknown => (Unknown, b')
       end
   end.
@@ -525,27 +356,29 @@ Fixpoint evolve_range_b (r : ProbRange) (time_steps : Fin) (b : Budget)
 
 (* The system naturally models: 
    
-   1. CONFIDENCE EXHAUSTION - Being certain is exhausting. Uncertainty is rest.
+   1. CONFIDENCE MAINTENANCE - Being certain costs one tick per step to
+      maintain, regardless of confidence level. No hierarchy of costs.
    
-   2. KNOWLEDGE DECAY - Without active maintenance, all knowledge becomes vague.
+   2. UNIFORM DECAY - All confidence levels decay at one tick per step.
+      Sharp->Fuzzy->Vague->Exhausted->Void, each transition costs one tick.
    
-   3. OBSERVATION COLLAPSE - Looking forces quantum-like collapse of confidence.
+   3. OBSERVATION COSTS ONE TICK - Looking forces collapse for one tick,
+      not varying amounts based on confidence level.
    
-   4. SPATIAL CONFIDENCE - Some regions of thought-space are more expensive.
+   4. NO EXPONENTIAL COSTS - Meta-levels don't cost exponentially more.
+      Being uncertain about uncertainty costs the same as being uncertain.
    
-   5. META-REGRESS - You can be uncertain about your uncertainty about your 
-      uncertainty... but each level costs exponentially more.
+   5. RANGE SPREADING - Ranges naturally spread at one tick per step,
+      not based on arbitrary precision levels.
    
-   6. RANGE UNCERTAINTY - Even describing the bounds of your uncertainty
-      costs energy, and those bounds naturally spread without maintenance.
+   This captures how bounded agents reason with uniform resource consumption:
+   - All mental operations cost the same unit of time
+   - Complexity emerges from how many steps you can afford
+   - Confidence naturally decays without maintenance
+   - "I don't know" is the rest state that costs nothing
    
-   This captures how actual bounded agents reason:
-   - Start confident (expensive)
-   - Gradually become uncertain (sustainable)  
-   - Eventually exhausted (free but useless)
-   - Finally void (don't even have bounds)
-   
-   "I don't know" is the thermodynamic ground state of epistemology. *)
+   The thermodynamic ground state of epistemology emerges from uniform
+   resource depletion, not from hierarchical cost structures. *)
 
 (******************************************************************************)
 (* EXPORTS                                                                    *)
@@ -554,7 +387,6 @@ Fixpoint evolve_range_b (r : ProbRange) (time_steps : Fin) (b : Budget)
 Definition MetaProb_ext := MetaProb.
 Definition ProbRange_ext := ProbRange.
 Definition tired_update_b_ext := tired_update_b.
-Definition confidence_cost_ext := confidence_cost.
 Definition observe_metaprob_b_ext := observe_metaprob_b.
 Definition combine_ranges_b_ext := combine_ranges_b.
 Definition in_range_b_ext := in_range_b.

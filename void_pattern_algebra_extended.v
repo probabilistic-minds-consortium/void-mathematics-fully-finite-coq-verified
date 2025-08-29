@@ -7,6 +7,7 @@ Require Import void_probability_minimal.
 Require Import void_pattern.
 Require Import void_pattern_thermo.
 Require Import void_arithmetic.
+Require Import void_information_theory.
 Require Import Coq.Lists.List.
 Import ListNotations.
 
@@ -16,6 +17,7 @@ Import Void_Pattern.
 Import Void_Pattern_Thermo.
 Import Void_Arithmetic.
 Import Void_Probability_Minimal.
+Import Void_Information_Theory.
 
 (******************************************************************************)
 (* CORE TYPES WITH BUDGET                                                    *)
@@ -55,6 +57,38 @@ Module PatternOps.
     end.
     
 End PatternOps.
+
+(******************************************************************************)
+(* BUDGET TRANSFER PROTOCOL - WRITE OPERATION                                *)
+(******************************************************************************)
+
+(* Budget transfer - moving resources between entities costs *)
+Definition transfer_budget (from to : Budget) (amount : Fin) (b : Budget) 
+  : (Budget * Budget * Heat) :=
+  match b with
+  | fz => (from, to, fz)  (* No budget to perform transfer *)
+  | fs b' =>
+      match le_fin_b amount from b' with
+      | (true, b'') =>
+          (* Can transfer *)
+          match sub_fin from amount b'' with
+          | (from_new, b1) =>
+              match add_fin to amount b1 with
+              | (to_new, b2) => (from_new, to_new, fs fz)
+              end
+          end
+      | (false, b'') =>
+          (* Cannot transfer - insufficient source *)
+          (from, to, fs fz)  (* Failed transfer still costs *)
+      end
+  end.
+
+Instance budget_transfer_write : WriteOperation (Budget * Budget * Fin) (Budget * Budget) := {
+  write_op := fun '(from, to, amount) b =>
+    match transfer_budget from to amount b with
+    | (f', t', h) => ((f', t'), b, h)
+    end
+}.
 
 (******************************************************************************)
 (* MOVEMENT ALGEBRA WITH BUDGET                                               *)
@@ -188,7 +222,11 @@ Module ThermalOps.
     : (Pattern * Budget) :=
     match to_thermal p b with
     | (tp, b1) =>
-        match compute_with_heat tp heat with
+        (* Create thermal pattern with the given heat *)
+        let tp_with_heat := {| pattern := pattern tp;
+                               heat_generated := heat;
+                               compute_budget := compute_budget tp |} in
+        match compute_with_heat tp_with_heat with
         | Some tp' => 
             match thermal_decay tp' with
             | Some tp'' => (pattern tp'', compute_budget tp'')
@@ -237,6 +275,19 @@ Module Entanglement.
     let m := Movement.observed_collapse obs in
     entangled_move ep m.
     
+  (* Budget transfer between entangled patterns - WRITE operation *)
+  Definition transfer_entangled_budget (ep : EntangledPair) (to_p1 : bool) 
+                                      (amount : Fin) 
+    : EntangledPair :=
+    match to_p1 with
+    | true =>
+        (* Transfer from shared pool to p1's operations *)
+        ep  (* Simplified: patterns share the pool already *)
+    | false =>
+        (* Transfer from shared pool to p2's operations *)
+        ep  (* Simplified: patterns share the pool already *)
+    end.
+    
 End Entanglement.
 
 (******************************************************************************)
@@ -255,6 +306,7 @@ Definition crisis_budget_seek (target : Fin) : PatternTransform :=
 
 Definition PatternTransform_ext := PatternTransform.
 Definition EntangledPair_ext := Entanglement.EntangledPair.
+Definition budget_transfer_write_ext := budget_transfer_write.
 
 (******************************************************************************)
 (* PHILOSOPHICAL NOTE                                                         *)
@@ -267,6 +319,7 @@ Definition EntangledPair_ext := Entanglement.EntangledPair.
    - Thermal operations cost energy from the field
    - Entangled patterns share a budget pool - what affects one affects both
    - Observation collapses patterns AND exhausts the observer
+   - Budget transfer itself costs resources - no free redistribution
    
    This models a universe where:
    - Algebra itself has a cost
@@ -274,6 +327,7 @@ Definition EntangledPair_ext := Entanglement.EntangledPair.
    - Entanglement creates resource dependencies
    - Heat and computation are fundamentally linked
    - Even mathematical operations obey thermodynamics
+   - Resource redistribution requires work
    
    The patterns don't just transform - they pay for transformation. *)
 

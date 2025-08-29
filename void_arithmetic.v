@@ -9,7 +9,6 @@ Require Import void_finite_minimal.
 
 Module Void_Arithmetic.
 
-Import Void_Finite_Minimal.  (* Import to use operation_cost *)
 
 (******************************************************************************)
 (* ARITHMETIC WITH HEAT - Every step costs one tick                          *)

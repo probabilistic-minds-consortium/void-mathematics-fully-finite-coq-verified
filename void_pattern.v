@@ -1,6 +1,7 @@
 (******************************************************************************)
 (* void_pattern.v - Pattern interference with heat tracking                   *)
 (* Observation generates heat! Interference creates thermodynamic cost!       *)
+(* CLEANED: No magic numbers, uniform costs                                   *)
 (******************************************************************************)
 
 Require Import Coq.Lists.List.
@@ -15,10 +16,6 @@ Module Void_Pattern.
 Import Void_Probability_Minimal.
 Import Void_Arithmetic.
 
-(* Constants *)
-Definition five : Fin := fs (fs (fs (fs (fs fz)))).
-Definition ten : Fin := fs (fs (fs (fs (fs five)))).
-
 (******************************************************************************)
 (* BASIC TYPES                                                                *)
 (******************************************************************************)
@@ -31,11 +28,10 @@ Record Pattern := {
 Record Observer := {
   sensitivity : Fin;
   obs_budget : Budget;
-  obs_heat : Heat  (* NEW: Accumulated heat from observations *)
+  obs_heat : Heat
 }.
 
-Definition strong_observer := {| sensitivity := fs fz; obs_budget := ten; obs_heat := fz |}.
-Definition weak_observer := {| sensitivity := fs (fs (fs fz)); obs_budget := five; obs_heat := fz |}.
+(* No privileged observers - create them as needed *)
 
 (******************************************************************************)
 (* HELPERS WITH BUDGET                                                        *)
@@ -79,43 +75,36 @@ Definition add_prob_with_budget (p1 p2 : FinProb) (b : Budget) : (FinProb * Budg
 (* CORE OPERATIONS WITH HEAT                                                 *)
 (******************************************************************************)
 
-(* Decay with heat - decay itself generates heat *)
+(* Decay with heat - uniform cost *)
 Definition decay_with_heat (p : FinProb) (b : Budget) : (FinProb * Budget * Heat) :=
   match b with
-  | fz => (p, fz, fz)  (* No budget - no decay, no heat *)
+  | fz => (p, fz, fz)
   | fs b' =>
       match p with
-      | (fs (fs n), d) => ((fs n, d), b', fs fz)  (* Decay generates heat *)
-      | other => (other, b', fs fz)  (* Even checking generates heat *)
+      | (fs (fs n), d) => ((fs n, d), b', operation_cost)
+      | other => (other, b', operation_cost)
       end
   end.
 
-(* Pattern interference with heat tracking *)
+(* Pattern interference with heat tracking - no magic numbers *)
 Definition interfere_heat (p1 p2 : Pattern) (b : Budget) 
   : (list Pattern * Budget * Heat) :=
   match fin_eq_b3 (location p1) (location p2) b with
   | (BTrue, b1, h1) =>
-      (* Same location - intense interference, lots of heat! *)
+      (* Same location - patterns interfere *)
       match decay_with_heat (strength p1) b1 with
       | (s1', b2, h2) =>
-          match decay_with_heat s1' b2 with
-          | (s1'', b3, h3) =>
-              match decay_with_heat (strength p2) b3 with
-              | (s2', b4, h4) =>
-                  match decay_with_heat s2' b4 with
-                  | (s2'', b5, h5) =>
-                      ([{| location := location p1; strength := s1'' |};
-                        {| location := location p2; strength := s2'' |};
-                        {| location := location p1; 
-                           strength := (fs fz, fs (fs (fs (fs fz)))) |}], 
-                       b5,
-                       add_heat h1 (add_heat h2 (add_heat h3 (add_heat h4 h5))))
-                  end
-              end
+          match decay_with_heat (strength p2) b2 with
+          | (s2', b3, h3) =>
+              (* Just return the decayed patterns, no magic third pattern *)
+              ([{| location := location p1; strength := s1' |};
+                {| location := location p2; strength := s2' |}], 
+               b3,
+               add_heat h1 (add_heat h2 h3))
           end
       end
   | (BFalse, b1, h1) =>
-      (* Different locations - less heat *)
+      (* Different locations - minimal interference *)
       match decay_with_heat (strength p1) b1 with
       | (s1', b2, h2) =>
           match decay_with_heat (strength p2) b2 with
@@ -127,7 +116,7 @@ Definition interfere_heat (p1 p2 : Pattern) (b : Budget)
           end
       end
   | (BUnknown, b1, h1) =>
-      (* Can't determine - return minimal result *)
+      (* Can't determine - return original patterns *)
       ([p1; p2], b1, h1)
   end.
 
@@ -164,7 +153,7 @@ Record Neuron := {
   refractory : Fin;
   maintained_patterns : list Fin;
   neuron_budget : Budget;
-  neuron_heat : Heat  (* NEW: Heat accumulated from firing *)
+  neuron_heat : Heat
 }.
 
 (* Check if pattern location is maintained - generates heat *)
@@ -216,7 +205,7 @@ Definition observe_pattern_heat (n : Neuron) (p : Pattern) : Neuron :=
       end
   end.
 
-(* Fire neuron - generates significant heat! *)
+(* Fire neuron - generates heat like any operation *)
 Definition fire_neuron_heat (n : Neuron) : (Neuron * option Pattern) :=
   match neuron_budget n with
   | fz => (n, None)
@@ -226,15 +215,14 @@ Definition fire_neuron_heat (n : Neuron) : (Neuron * option Pattern) :=
       | fz =>
           match prob_le_b3 (threshold n) (accumulated n) (neuron_budget n) with
           | (BTrue, b', h) =>
-              (* FIRING! Generates lots of heat *)
-              let firing_heat := fs (fs (fs h)) in  (* Triple the comparison heat *)
+              (* FIRING! One tick refractory, normal heat *)
               ({| neuron_id := neuron_id n;
                   threshold := threshold n;
                   accumulated := (fs fz, snd (accumulated n));
-                  refractory := fs (fs (fs fz));
+                  refractory := operation_cost;  (* One tick refractory *)
                   maintained_patterns := maintained_patterns n;
                   neuron_budget := b';
-                  neuron_heat := add_heat (neuron_heat n) firing_heat |},
+                  neuron_heat := add_heat (neuron_heat n) h |},
                Some {| location := neuron_id n; strength := accumulated n |})
           | (_, b', h) =>
               ({| neuron_id := neuron_id n;
@@ -418,11 +406,11 @@ Axiom observation_heat_principle : forall obs p res obs',
   can_see_heat obs p = (res, obs') ->
   (fin_to_Z_PROOF_ONLY (obs_heat obs') >= fin_to_Z_PROOF_ONLY (obs_heat obs))%Z.
 
-
-(* The pattern hierarchy theorem - axiom for now *)
-Axiom strong_sees_more : forall p b,
+(* The pattern hierarchy theorem - no magic numbers *)
+Axiom strong_sees_more : forall p b s1 s2,
   b <> fz ->
-  fst (can_see {| sensitivity := fs (fs (fs fz)); obs_budget := b; obs_heat := fz |} p) = true ->
-  fst (can_see {| sensitivity := fs fz; obs_budget := b; obs_heat := fz |} p) = true.
+  leF s1 s2 ->
+  fst (can_see {| sensitivity := s2; obs_budget := b; obs_heat := fz |} p) = true ->
+  fst (can_see {| sensitivity := s1; obs_budget := b; obs_heat := fz |} p) = true.
 
 End Void_Pattern.

@@ -1,13 +1,14 @@
 (******************************************************************************)
 (* void_resonance.v - BUDGET-AWARE RESONANCE CASCADES                        *)
 (* Patterns find resonant locations and amplify, but everything costs        *)
-(* Finding resonance, matching frequencies, cascading - all deplete budget   *)
+(* CLEANED: All operations cost one tick, costs emerge from context          *)
 (******************************************************************************)
 
 Require Import void_finite_minimal.
 Require Import void_probability_minimal.
 Require Import void_pattern.
 Require Import void_arithmetic.
+Require Import void_information_theory.
 Require Import Coq.Lists.List.
 Import ListNotations.
 
@@ -16,24 +17,17 @@ Module Void_Resonance_Cascades.
 Import Void_Pattern.
 Import Void_Arithmetic.
 Import Void_Probability_Minimal.
+Import Void_Information_Theory.
 Import List.
 
 (* List reverse function *)
 Definition rev {A : Type} := @List.rev A.
 
 (******************************************************************************)
-(* SYSTEM CONSTANTS - Given by the void                                      *)
+(* FUNDAMENTAL CONSTANT - One tick of time                                   *)
 (******************************************************************************)
 
-Parameter frequency_match_cost : Fin.
-Parameter resonance_jump_cost : Fin.
-Parameter cascade_step_cost : Fin.
-Parameter damping_cost : Fin.
-
-Axiom freq_match_cost_spec : frequency_match_cost = fs fz.
-Axiom jump_cost_spec : resonance_jump_cost = fs (fs fz).
-Axiom cascade_cost_spec : cascade_step_cost = fs (fs (fs fz)).
-Axiom damping_cost_spec : damping_cost = fs fz.
+Definition operation_cost : Fin := fs fz.  (* The only arbitrary constant *)
 
 (******************************************************************************)
 (* CORE TYPES WITH BUDGET AWARENESS                                          *)
@@ -51,7 +45,7 @@ Record ResonantLocation := {
 Record NetworkState := {
   locations : list ResonantLocation;
   global_phase : Fin;
-  network_budget : Budget  (* Changed from energy_budget for clarity *)
+  network_budget : Budget
 }.
 
 (* Pattern with resonance-seeking capability *)
@@ -61,14 +55,232 @@ Record ResonantPattern := {
 }.
 
 (******************************************************************************)
-(* PROBABILITY OPERATIONS WITH BUDGET                                        *)
+(* READ OPERATIONS - Access existing resonance structure                      *)
 (******************************************************************************)
 
-(* Distance between probabilities - costs budget *)
+(* Read location frequency - FREE *)
+Definition read_frequency (loc : ResonantLocation) : FinProb :=
+  base_frequency loc.
+
+Instance frequency_read : ReadOperation ResonantLocation FinProb := {
+  read_op := read_frequency
+}.
+
+(* Read current amplitude - FREE *)
+Definition read_amplitude (loc : ResonantLocation) : FinProb :=
+  current_amplitude loc.
+
+Instance amplitude_read : ReadOperation ResonantLocation FinProb := {
+  read_op := read_amplitude
+}.
+
+(* Read damping factor - FREE *)
+Definition read_damping (loc : ResonantLocation) : Fin :=
+  damping loc.
+
+Instance damping_read : ReadOperation ResonantLocation Fin := {
+  read_op := read_damping
+}.
+
+(* Check if pattern budget is exhausted - FREE *)
+Definition read_pattern_exhausted (rp : ResonantPattern) : bool :=
+  match resonance_budget rp with
+  | fz => true
+  | _ => false
+  end.
+
+Instance pattern_exhaustion_read : ReadOperation ResonantPattern bool := {
+  read_op := read_pattern_exhausted
+}.
+
+(******************************************************************************)
+(* DYNAMIC COST FUNCTIONS - Costs emerge from context                        *)
+(******************************************************************************)
+
+(* Frequency matching cost depends on precision needed - READ operation *)
+Definition frequency_match_cost_dynamic (network_budget : Budget) : Fin :=
+  match network_budget with
+  | fz => operation_cost      (* No budget: basic cost *)
+  | _ => operation_cost       (* Always one tick - precision affects success rate *)
+  end.
+
+Instance freq_match_cost_read : ReadOperation Budget Fin := {
+  read_op := frequency_match_cost_dynamic
+}.
+
+(* Jump cost depends on distance and network state - READ operation *)
+Definition resonance_jump_cost_dynamic (from_loc to_loc : Fin) (b : Budget) : Fin :=
+  (* Cost is always one tick - distance affects success probability *)
+  operation_cost.
+
+Instance jump_cost_read : ReadOperation (Fin * Fin * Budget) Fin := {
+  read_op := fun '(from, to, b) => resonance_jump_cost_dynamic from to b
+}.
+
+(* Cascade cost depends on network load - READ operation *)
+Definition cascade_step_cost_dynamic (net : NetworkState) : Fin :=
+  match network_budget net with
+  | fz => operation_cost      (* Exhausted: still one tick but likely to fail *)
+  | _ => operation_cost       (* Normal: one tick *)
+  end.
+
+Instance cascade_cost_read : ReadOperation NetworkState Fin := {
+  read_op := cascade_step_cost_dynamic
+}.
+
+(******************************************************************************)
+(* WRITE OPERATIONS - Change resonance state                                 *)
+(******************************************************************************)
+
+(* Distance between probabilities - helper function using existing operations *)
 Definition dist_prob_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
   match dist_fin_b (fst p1) (fst p2) b with
-  | (dist, b') => ((dist, snd p1), b')  (* Use first denominator *)
+  | (dist, b') => ((dist, snd p1), b')
   end.
+
+(* Check frequency match - WRITE operation (computes new information) *)
+Definition write_frequency_match (p_freq loc_freq : FinProb) (threshold : Fin) (b : Budget)
+  : (bool * Budget * Heat) :=
+  match b with
+  | fz => (false, fz, fz)
+  | fs b' =>
+      match dist_prob_b p_freq loc_freq b' with
+      | (dist, b'') =>
+          match le_fin_b (fst dist) threshold b'' with
+          | (within, b''') => (within, b''', fs fz)
+          end
+      end
+  end.
+
+Instance frequency_match_write : WriteOperation (FinProb * FinProb * Fin) bool := {
+  write_op := fun '(p_freq, loc_freq, threshold) => 
+    write_frequency_match p_freq loc_freq threshold
+}.
+
+(* Find resonant location - WRITE operation *)
+Fixpoint write_find_resonant (rp : ResonantPattern) (locs : list ResonantLocation) 
+                             (b : Budget) : (option ResonantLocation * Budget * Heat) :=
+  match locs, b with
+  | [], _ => (None, b, fz)
+  | _, fz => (None, fz, fz)
+  | loc :: rest, fs b' =>
+      (* Simplified threshold *)
+      match write_frequency_match (strength (pattern rp)) (base_frequency loc) (fs fz) b' with
+      | (true, b'', h) => (Some loc, b'', h)
+      | (false, b'', h) =>
+          match write_find_resonant rp rest b'' with
+          | (result, b''', h') => (result, b''', add_heat h h')
+          end
+      end
+  end.
+
+Instance find_resonant_write : WriteOperation (ResonantPattern * list ResonantLocation) 
+                                             (option ResonantLocation) := {
+  write_op := fun '(rp, locs) => write_find_resonant rp locs
+}.
+
+(* Jump to resonant location - WRITE operation *)
+Definition write_resonance_jump (rp : ResonantPattern) (target : ResonantLocation) 
+                                (b : Budget) : (ResonantPattern * Budget * Heat) :=
+  match b with
+  | fz => (rp, fz, fz)
+  | fs b' =>
+      (* Update pattern location *)
+      let new_pattern := {| location := loc_id target;
+                           strength := strength (pattern rp) |} in
+      ({| pattern := new_pattern;
+          resonance_budget := resonance_budget rp |}, b', fs fz)
+  end.
+
+Instance resonance_jump_write : WriteOperation (ResonantPattern * ResonantLocation) 
+                                              ResonantPattern := {
+  write_op := fun '(rp, target) => write_resonance_jump rp target
+}.
+
+(* Amplify at resonant location - WRITE operation *)
+Definition write_amplify (rp : ResonantPattern) (loc : ResonantLocation) (b : Budget)
+  : (ResonantPattern * ResonantLocation * Budget * Heat) :=
+  match b with
+  | fz => (rp, loc, fz, fz)
+  | fs b' =>
+      (* Amplify pattern strength *)
+      match add_prob_b (strength (pattern rp)) (current_amplitude loc) b' with
+      | (new_strength, b'') =>
+          let new_pattern := {| location := location (pattern rp);
+                               strength := new_strength |} in
+          let new_rp := {| pattern := new_pattern;
+                          resonance_budget := resonance_budget rp |} in
+          (* Update location amplitude *)
+          let new_loc := {| loc_id := loc_id loc;
+                           base_frequency := base_frequency loc;
+                           damping := damping loc;
+                           current_amplitude := new_strength |} in
+          (new_rp, new_loc, b'', fs fz)
+      end
+  end.
+
+Instance amplify_write : WriteOperation (ResonantPattern * ResonantLocation)
+                                       (ResonantPattern * ResonantLocation) := {
+  write_op := fun '(rp, loc) b =>
+    match write_amplify rp loc b with
+    | (rp', loc', b', h) => ((rp', loc'), b', h)
+    end
+}.
+
+(* Apply damping - WRITE operation *)
+Definition write_apply_damping (loc : ResonantLocation) (b : Budget)
+  : (ResonantLocation * Budget * Heat) :=
+  match b with
+  | fz => (loc, fz, fz)
+  | fs b' =>
+      (* Decay amplitude *)
+      match decay_with_budget (current_amplitude loc) b' with
+      | (new_amp, b'') =>
+          ({| loc_id := loc_id loc;
+              base_frequency := base_frequency loc;
+              damping := damping loc;
+              current_amplitude := new_amp |}, b'', fs fz)
+      end
+  end.
+
+Instance damping_write : WriteOperation ResonantLocation ResonantLocation := {
+  write_op := write_apply_damping
+}.
+
+(* Cascade step - WRITE operation *)
+Definition write_cascade_step (net : NetworkState) (b : Budget) 
+  : (NetworkState * Budget * Heat) :=
+  match b with
+  | fz => (net, fz, fz)
+  | fs b' =>
+      (* Apply damping to all locations *)
+      let damped_locs := fold_left (fun acc loc =>
+        match acc with
+        | (locs, b_acc) =>
+            match b_acc with
+            | fz => (locs, fz)
+            | _ =>
+                match write_apply_damping loc b_acc with
+                | (new_loc, b'', h) => (new_loc :: locs, b'')
+                end
+            end
+        end
+      ) (locations net) ([], b') in
+      match damped_locs with
+      | (new_locs, b'') =>
+          ({| locations := rev new_locs;
+              global_phase := fs (global_phase net);
+              network_budget := b'' |}, b'', fs fz)
+      end
+  end.
+
+Instance cascade_step_write : WriteOperation NetworkState NetworkState := {
+  write_op := write_cascade_step
+}.
+
+(******************************************************************************)
+(* HELPER FUNCTIONS                                                          *)
+(******************************************************************************)
 
 (* Add probabilities with budget *)
 Definition add_prob_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
@@ -76,12 +288,10 @@ Definition add_prob_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
   let (n2, d2) := p2 in
   match fin_eq_b d1 d2 b with
   | (true, b1) =>
-      (* Same denominator - just add numerators *)
       match add_fin n1 n2 b1 with
       | (sum, b2) => ((sum, d1), b2)
       end
   | (false, b1) =>
-      (* Different denominators - expensive cross multiplication *)
       match mult_fin n1 d2 b1 with
       | (v1, b2) =>
           match mult_fin n2 d1 b2 with
@@ -96,337 +306,58 @@ Definition add_prob_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
       end
   end.
 
-(* Multiply probabilities with budget *)
-Definition mult_prob_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
-  let (n1, d1) := p1 in
-  let (n2, d2) := p2 in
-  match mult_fin n1 n2 b with
-  | (new_n, b1) =>
-      match mult_fin d1 d2 b1 with
-      | (new_d, b2) => ((new_n, new_d), b2)
-      end
-  end.
-
-(* Average probabilities with budget *)
-Definition avg_prob_b (p1 p2 : FinProb) (b : Budget) : (FinProb * Budget) :=
-  match add_prob_b p1 p2 b with
-  | ((sum_n, sum_d), b1) =>
-      (* Divide by 2 by doubling denominator *)
-      match add_fin sum_d sum_d b1 with
-      | (double_d, b2) => ((sum_n, double_d), b2)
-      end
-  end.
-
 (******************************************************************************)
-(* FREQUENCY MATCHING WITH BUDGET                                            *)
+(* COMPOSITE OPERATIONS                                                       *)
 (******************************************************************************)
 
-(* Check if frequencies match - costs budget *)
-Definition frequencies_match_b (p_freq loc_freq : FinProb) (b : Budget) 
-  : (bool * Budget) :=
-  match b with
-  | fz => (false, fz)  (* No budget - no match *)
-  | fs b' =>
-      match dist_prob_b p_freq loc_freq b' with
-      | (dist, b'') =>
-          (* Threshold is 1/5 *)
-          le_fin_b (fst dist) (fs fz) b''
-      end
-  end.
-
-(* Find matching location - expensive search *)
-Fixpoint find_resonant_location_b (rp : ResonantPattern) (locs : list ResonantLocation)
-  : (option ResonantLocation * Budget) :=
-  match locs, resonance_budget rp with
-  | [], b => (None, b)
-  | _, fz => (None, fz)
-  | loc :: rest, b =>
-      match frequencies_match_b (strength (pattern rp)) (base_frequency loc) b with
-      | (true, b') => (Some loc, b')
-      | (false, b') =>
-          find_resonant_location_b 
-            {| pattern := pattern rp; resonance_budget := b' |} rest
-      end
-  end.
-
-(******************************************************************************)
-(* AMPLIFICATION AND RESONANCE JUMPS                                        *)
-(******************************************************************************)
-
-(* Calculate amplification - costs budget to compute *)
-Definition amplification_factor_b (rp : ResonantPattern) (loc : ResonantLocation) 
-  : (FinProb * Budget) :=
-  match resonance_budget rp with
-  | fz => ((fs fz, fs (fs fz)), fz)  (* No budget - minimal amplification *)
-  | fs b' =>
-      match frequencies_match_b (strength (pattern rp)) (base_frequency loc) b' with
-      | (true, b'') =>
-          (* Matching frequency - check amplitude for amplification *)
-          match le_fin_b (fst (current_amplitude loc)) (fs (fs fz)) b'' with
-          | (true, b''') =>
-              (* Low amplitude - high amplification *)
-              ((fs (fs (fs fz)), fs (fs (fs (fs fz)))), b''')  (* 3/4 *)
-          | (false, b''') =>
-              (* High amplitude - moderate amplification *)
-              ((fs (fs fz), fs (fs (fs (fs fz)))), b''')  (* 1/2 *)
-          end
-      | (false, b'') => (half, b'')  (* No match - half *)
-      end
-  end.
-
-(* Resonance jump - costs significant budget *)
-Definition resonance_jump_b (rp : ResonantPattern) (net : NetworkState)
+(* Find and jump to resonant location - combines READ and WRITE *)
+Definition resonance_seek (rp : ResonantPattern) (net : NetworkState) 
   : (ResonantPattern * NetworkState) :=
-  match find_resonant_location_b rp (locations net) with
-  | (None, b') =>
-      (* No resonant location found *)
-      ({| pattern := pattern rp; resonance_budget := b' |}, net)
-  | (Some loc, b') =>
-      match sub_fin b' resonance_jump_cost b' with
-      | (b_after_jump, b'') =>
-          match amplification_factor_b 
-                  {| pattern := pattern rp; resonance_budget := b'' |} loc with
-          | (amp, b''') =>
-              match mult_prob_b (strength (pattern rp)) amp b''' with
-              | (new_strength, b4) =>
-                  ({| pattern := {| location := loc_id loc;
-                                   strength := new_strength |};
-                      resonance_budget := b4 |},
-                   {| locations := locations net;
-                      global_phase := fs (global_phase net);
-                      network_budget := network_budget net |})
-              end
-          end
+  match write_find_resonant rp (locations net) (network_budget net) with
+  | (Some loc, b', h) =>
+      match write_resonance_jump rp loc b' with
+      | (new_rp, b'', h') =>
+          (new_rp, {| locations := locations net;
+                     global_phase := global_phase net;
+                     network_budget := b'' |})
       end
-  end.
-
-(******************************************************************************)
-(* NETWORK UPDATES WITH BUDGET                                               *)
-(******************************************************************************)
-
-(* Update network after pattern arrives - costs budget *)
-Definition update_network_resonance_b (rp : ResonantPattern) 
-                                     (loc : ResonantLocation) 
-                                     (net : NetworkState)
-  : NetworkState :=
-  match network_budget net with
-  | fz => net  (* No budget - no update *)
-  | fs b' =>
-      (* Define update function with explicit type *)
-      let update_location : ResonantLocation -> Budget -> (ResonantLocation * Budget) := 
-        fun l b =>
-          match fin_eq_b (loc_id l) (loc_id loc) b with
-          | (true, b1) =>
-              (* This is the resonant location - add pattern strength *)
-              match add_prob_b (current_amplitude l) (strength (pattern rp)) b1 with
-              | (new_amp, b2) =>
-                  ({| loc_id := loc_id l;
-                      base_frequency := base_frequency l;
-                      damping := damping l;
-                      current_amplitude := new_amp |}, b2)
-              end
-          | (false, b1) => (l, b1)
-          end in
-      
-      (* Map update over all locations *)
-      let process_locs := fold_left (fun (acc : list ResonantLocation * Budget) l =>
-        match acc with
-        | (updated, b_acc) =>
-            match update_location l b_acc with
-            | (new_l, b_next) => (new_l :: updated, b_next)
-            end
-        end
-      ) (locations net) (([] : list ResonantLocation), b') in
-      
-      match process_locs with
-      | (updated_locs, b_final) =>
-          {| locations := rev updated_locs;
-             global_phase := fs (global_phase net);
-             network_budget := b_final |}
-      end
-  end.
-
-(******************************************************************************)
-(* CASCADE PROPAGATION - VERY EXPENSIVE                                      *)
-(******************************************************************************)
-
-(* Resonance cascade - each step costs budget *)
-Fixpoint resonance_cascade_b (rp : ResonantPattern) 
-                            (net : NetworkState) 
-                            (steps : Fin)
-  : (ResonantPattern * NetworkState) :=
-  match steps with
-  | fz => (rp, net)
-  | fs steps' =>
-      match resonance_budget rp, network_budget net with
-      | fz, _ => (rp, net)  (* Pattern exhausted *)
-      | _, fz => (rp, net)  (* Network exhausted *)
-      | _, _ =>
-          match find_resonant_location_b rp (locations net) with
-          | (None, b') => 
-              ({| pattern := pattern rp; resonance_budget := b' |}, net)
-          | (Some loc, b') =>
-              (* Deduct cascade step cost *)
-              match sub_fin b' cascade_step_cost b' with
-              | (_, b'') =>
-                  let rp' := {| pattern := pattern rp; resonance_budget := b'' |} in
-                  match resonance_jump_b rp' net with
-                  | (rp_jumped, net') =>
-                      match update_network_resonance_b rp_jumped loc net' with
-                      | net'' => resonance_cascade_b rp_jumped net'' steps'
-                      end
-                  end
-              end
-          end
-      end
-  end.
-
-(******************************************************************************)
-(* DAMPING AND DECAY WITH BUDGET                                            *)
-(******************************************************************************)
-
-(* Decay probability by amount - costs budget *)
-Definition decay_by_amount_b (p : FinProb) (amount : Fin) (b : Budget) 
-  : (FinProb * Budget) :=
-  match b with
-  | fz => (p, fz)
-  | fs b' =>
-      let (n, d) := p in
-      match amount with
-      | fz => (p, b')
-      | fs fz => 
-          ((match n with fz => fz | fs n' => n' end, d), b')
-      | _ => 
-          ((match n with 
-            | fz => fz 
-            | fs fz => fz
-            | fs (fs n') => n' 
-            end, d), b')
-      end
-  end.
-
-(* Apply damping to network - costs budget per location *)
-Definition apply_damping_b (net : NetworkState) : NetworkState :=
-  match network_budget net with
-  | fz => net
-  | _ =>
-      (* Define damp function with explicit type *)
-      let damp_location : ResonantLocation -> Budget -> (ResonantLocation * Budget) := 
-        fun loc b =>
-          match decay_by_amount_b (current_amplitude loc) (damping loc) b with
-          | (new_amp, b') =>
-              ({| loc_id := loc_id loc;
-                  base_frequency := base_frequency loc;
-                  damping := damping loc;
-                  current_amplitude := new_amp |}, b')
-          end in
-      
-      let process_locs := fold_left (fun (acc : list ResonantLocation * Budget) l =>
-        match acc with
-        | (damped, b_acc) =>
-            match damp_location l b_acc with
-            | (new_l, b_next) => (new_l :: damped, b_next)
-            end
-        end
-      ) (locations net) (([] : list ResonantLocation), network_budget net) in
-      
-      match process_locs with
-      | (damped_locs, b_final) =>
-          {| locations := rev damped_locs;
+  | (None, b', h) =>
+      (rp, {| locations := locations net;
              global_phase := global_phase net;
-             network_budget := b_final |}
-      end
+             network_budget := b' |})
   end.
 
 (******************************************************************************)
-(* STANDING WAVES AND NETWORK STATE                                          *)
+(* EXPORTS                                                                    *)
 (******************************************************************************)
 
-(* Create standing wave - costs budget *)
-Definition create_standing_wave_b (loc1 loc2 : ResonantLocation) (b : Budget)
-  : (Pattern * Budget) :=
-  match avg_prob_b (base_frequency loc1) (base_frequency loc2) b with
-  | (avg_freq, b') =>
-      match min_fin_b (loc_id loc1) (loc_id loc2) b' with
-      | (min_loc, b'') =>
-          ({| location := min_loc; strength := avg_freq |}, b'')
-      end
-  end.
-
-(* Check if network is resonating - expensive check *)
-Definition network_resonating_b (net : NetworkState) : (bool * Budget) :=
-  match locations net, network_budget net with
-  | [], b => (false, b)
-  | _, fz => (false, fz)
-  | locs, b =>
-      (* Define check function with explicit type *)
-      let check_amplitude : ResonantLocation -> Budget -> (bool * Budget) := 
-        fun l b => le_fin_b (fs (fs fz)) (fst (current_amplitude l)) b in
-      
-      let check_all := fold_left (fun (acc : bool * Budget) l =>
-        match acc with
-        | (all_resonating, b_acc) =>
-            if all_resonating then
-              check_amplitude l b_acc
-            else
-              (false, b_acc)
-        end
-      ) locs (true, b) in
-      
-      check_all
-  end.
-
-(******************************************************************************)
-(* EXAMPLE NETWORK - With explicit budget                                    *)
-(******************************************************************************)
-
-Definition example_network : NetworkState :=
-  let ten := fs (fs (fs (fs (fs (fs (fs (fs (fs (fs fz))))))))) in
-  {| locations := [
-       {| loc_id := fz;
-          base_frequency := (fs (fs fz), fs (fs (fs (fs fz))));
-          damping := fs fz;
-          current_amplitude := (fs fz, fs (fs (fs (fs fz)))) |};
-       {| loc_id := fs fz;
-          base_frequency := (fs (fs fz), fs (fs (fs (fs fz))));
-          damping := fs (fs fz);
-          current_amplitude := (fs fz, fs (fs (fs fz))) |}
-     ];
-     global_phase := fz;
-     network_budget := ten |}.
-
-(******************************************************************************)
-(* METADATA OPERATIONS                                                        *)
-(******************************************************************************)
-
-(* Count locations - metadata operation *)
-Definition count_locations (locs : list ResonantLocation) : Fin :=
-  fold_left (fun acc _ => fs acc) locs fz.
+Definition ResonantLocation_ext := ResonantLocation.
+Definition NetworkState_ext := NetworkState.
+Definition ResonantPattern_ext := ResonantPattern.
+Definition resonance_seek_ext := resonance_seek.
 
 (******************************************************************************)
 (* PHILOSOPHICAL NOTE                                                         *)
 (******************************************************************************)
 
-(* Resonance in void mathematics reveals resource truths:
+(* Resonance in void mathematics embodies thermodynamic truth:
    
-   1. FINDING RESONANCE COSTS - Matching frequencies requires computation
-      that depletes the pattern's search budget.
+   1. ONE TICK PER OPERATION - Finding resonance, jumping, amplifying -
+      all cost exactly one tick. No operation is "harder."
    
-   2. AMPLIFICATION ISN'T FREE - Computing how much to amplify based on
-      current amplitude costs budget. High amplification costs more.
+   2. COSTS EMERGE FROM CONTEXT - An exhausted network doesn't pay more
+      per operation; it simply fails more often, requiring more attempts.
    
-   3. CASCADES EXHAUST - Each step of a cascade depletes both pattern
-      and network budgets. Long cascades become impossible.
+   3. NO MAGIC THRESHOLDS - Resonance matching uses simple comparisons
+      without privileged frequencies or special distances.
    
-   4. DAMPING IS WORK - Even decay requires budget to compute. A network
-      with depleted budget can't even decay properly.
+   4. DAMPING IS UNIFORM - Every location decays at one tick per step.
+      Complex dynamics emerge from iteration, not from magic constants.
    
-   5. OBSERVATION CHANGES STATE - Checking if the network is resonating
-      requires examining each location, depleting network resources.
+   5. CASCADES EXHAUST NATURALLY - Not through artificial limits but
+      through accumulated single-tick operations depleting resources.
    
-   This models a universe where resonance emerges from resource gradients.
-   Patterns seek resonant locations not from desire but from the interplay
-   of frequency matching costs and available budgets. Eventually all
-   cascades cease as budgets exhaust. *)
+   This models resonance where complexity emerges from resource scarcity,
+   not from arbitrary difficulty assignments. *)
 
 End Void_Resonance_Cascades.

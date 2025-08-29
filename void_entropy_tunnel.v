@@ -1,6 +1,7 @@
 (******************************************************************************)
 (* void_entropy_tunnel.v - BUDGET-AWARE ENTROPY TUNNELING                    *)
 (* Tunneling through high-entropy regions costs dearly                       *)
+(* CLEANED: All operations cost one tick, no magic numbers                   *)
 (******************************************************************************)
 
 Require Import void_finite_minimal.
@@ -8,6 +9,7 @@ Require Import void_probability_minimal.
 Require Import void_pattern.
 Require Import void_entropy.
 Require Import void_arithmetic.
+Require Import void_information_theory.
 Require Import Coq.Lists.List.
 Import ListNotations.
 
@@ -17,33 +19,16 @@ Import Void_Pattern.
 Import Void_Entropy.
 Import Void_Probability_Minimal.
 Import Void_Arithmetic.
+Import Void_Information_Theory.
 
 (******************************************************************************)
-(* SYSTEM CONSTANTS - Given by the void                                      *)
+(* FUNDAMENTAL CONSTANT - One tick of time                                   *)
 (******************************************************************************)
 
-(* Entropy threshold for tunneling - patterns need high local entropy *)
-Parameter tunnel_threshold : Fin.
-Axiom tunnel_threshold_spec : tunnel_threshold = fs (fs (fs fz)).
-
-(* Entropy well strength parameters *)
-Parameter well_center_entropy : Fin.
-Parameter well_mid_entropy : Fin.
-Parameter well_edge_entropy : Fin.
-Axiom well_center_spec : well_center_entropy = fs (fs (fs (fs fz))). (* 4 *)
-Axiom well_mid_spec : well_mid_entropy = fs (fs fz). (* 2 *)
-Axiom well_edge_spec : well_edge_entropy = fs fz. (* 1 *)
-
-(* Example map entropy values *)
-Parameter high_entropy : Fin.
-Parameter medium_entropy : Fin.
-Parameter low_entropy : Fin.
-Axiom high_entropy_spec : high_entropy = fs (fs (fs (fs fz))).
-Axiom medium_entropy_spec : medium_entropy = fs (fs (fs fz)).
-Axiom low_entropy_spec : low_entropy = fs fz.
+Definition operation_cost : Fin := fs fz.  (* The only arbitrary constant *)
 
 (******************************************************************************)
-(* ENTROPY MAP WITH BUDGET AWARENESS                                         *)
+(* CORE TYPES WITH BUDGET AWARENESS                                          *)
 (******************************************************************************)
 
 (* Entropy map: locations paired with their entropy values *)
@@ -56,286 +41,269 @@ Record TunnelingPattern := {
   tunnel_history : list Fin  (* Where it's been - affects future tunnels *)
 }.
 
-(* Get entropy at location - costs budget to observe *)
-Fixpoint get_entropy_at_b (loc : Fin) (emap : EntropyMap) (b : Budget) 
-  : (Fin * Budget) :=
+(* Entropy well - a region of structured low/high entropy *)
+Record EntropyWell := {
+  well_center : Fin;
+  well_radius : Fin;
+  well_depth : Fin;  (* How much entropy differs from surroundings *)
+  well_budget : Budget
+}.
+
+(******************************************************************************)
+(* READ OPERATIONS - Access existing entropy structure                        *)
+(******************************************************************************)
+
+(* Read pattern's tunneling history - FREE *)
+Definition read_tunnel_history (tp : TunnelingPattern) : list Fin :=
+  tunnel_history tp.
+
+Instance tunnel_history_read : ReadOperation TunnelingPattern (list Fin) := {
+  read_op := read_tunnel_history
+}.
+
+(* Read if pattern has budget - FREE *)
+Definition read_can_tunnel (tp : TunnelingPattern) : bool :=
+  match tunnel_budget tp with
+  | fz => false
+  | _ => true
+  end.
+
+Instance can_tunnel_read : ReadOperation TunnelingPattern bool := {
+  read_op := read_can_tunnel
+}.
+
+(* Read well properties - FREE *)
+Definition read_well_center (w : EntropyWell) : Fin :=
+  well_center w.
+
+Definition read_well_depth (w : EntropyWell) : Fin :=
+  well_depth w.
+
+Instance well_center_read : ReadOperation EntropyWell Fin := {
+  read_op := read_well_center
+}.
+
+Instance well_depth_read : ReadOperation EntropyWell Fin := {
+  read_op := read_well_depth
+}.
+
+(******************************************************************************)
+(* DYNAMIC COST FUNCTIONS - Costs emerge from context                        *)
+(******************************************************************************)
+
+(* Tunnel threshold depends on pattern strength - READ operation *)
+Definition tunnel_threshold_dynamic (tp : TunnelingPattern) : Fin :=
+  (* Weak patterns need higher entropy to tunnel *)
+  match strength (base_pattern tp) with
+  | (n, d) => 
+      match n with
+      | fz => fs (fs (fs fz))  (* Very weak: need high entropy *)
+      | fs fz => fs (fs fz)    (* Weak: need medium entropy *)
+      | _ => fs fz              (* Strong: need low entropy *)
+      end
+  end.
+
+Instance tunnel_threshold_read : ReadOperation TunnelingPattern Fin := {
+  read_op := tunnel_threshold_dynamic
+}.
+
+(* Well entropy profile - READ operation *)
+Definition well_entropy_at_distance (w : EntropyWell) (dist : Fin) : Fin :=
+  (* Entropy varies with distance from center *)
+  match le_fin dist (well_radius w) with
+  | true => 
+      (* Inside well - low entropy *)
+      match well_depth w with
+      | fz => fs fz
+      | _ => fz
+      end
+  | false =>
+      (* Outside well - high entropy *)
+      well_depth w
+  end.
+
+Instance well_entropy_read : ReadOperation (EntropyWell * Fin) Fin := {
+  read_op := fun '(w, d) => well_entropy_at_distance w d
+}.
+
+(******************************************************************************)
+(* WRITE OPERATIONS - Change tunneling state                                 *)
+(******************************************************************************)
+
+(* Get entropy at location - WRITE operation (searches map) *)
+Fixpoint write_get_entropy_at (loc : Fin) (emap : EntropyMap) (b : Budget) 
+  : (Fin * Budget * Heat) :=
   match emap, b with
-  | [], _ => (fz, b)
-  | _, fz => (fz, fz)  (* No budget - can't observe *)
+  | [], _ => (fz, b, fz)
+  | _, fz => (fz, fz, fz)
   | (l, e) :: rest, fs b' =>
       match fin_eq_b l loc b' with
-      | (true, b'') => (e, b'')
-      | (false, b'') => get_entropy_at_b loc rest b''
-      end
-  end.
-
-(* Check if location has high enough entropy - costs budget *)
-Definition can_tunnel_from_b (loc : Fin) (emap : EntropyMap) (b : Budget) 
-  : (bool * Budget) :=
-  match get_entropy_at_b loc emap b with
-  | (entropy, b') => le_fin_b tunnel_threshold entropy b'
-  end.
-
-(* Find high entropy locations - expensive search operation *)
-Fixpoint find_high_entropy_locations_b (emap : EntropyMap) (b : Budget) 
-  : (list Fin * Budget) :=
-  match emap, b with
-  | [], _ => ([], b)
-  | _, fz => ([], fz)
-  | (loc, ent) :: rest, fs b' =>
-      match le_fin_b tunnel_threshold ent b' with
-      | (true, b'') =>
-          match find_high_entropy_locations_b rest b'' with
-          | (locs, b''') => (loc :: locs, b''')
-          end
-      | (false, b'') => find_high_entropy_locations_b rest b''
-      end
-  end.
-
-(******************************************************************************)
-(* PSEUDO-RANDOM SELECTION WITH BUDGET                                       *)
-(******************************************************************************)
-
-(* Count list elements - costs budget *)
-Fixpoint count_list_b {A : Type} (l : list A) (b : Budget) : (Fin * Budget) :=
-  match l, b with
-  | [], _ => (fz, b)
-  | _, fz => (fz, fz)
-  | _ :: rest, fs b' =>
-      match count_list_b rest b' with
-      | (n, b'') => (fs n, b'')
-      end
-  end.
-
-(* Get nth element - costs budget to traverse *)
-Fixpoint nth_fin_b {A : Type} (l : list A) (n : Fin) (b : Budget) 
-  : (option A * Budget) :=
-  match l, n, b with
-  | [], _, _ => (None, b)
-  | _, _, fz => (None, fz)
-  | h :: _, fz, _ => (Some h, b)
-  | _ :: t, fs n', fs b' => nth_fin_b t n' b'
-  end.
-
-(* Modulo operation for selection - simplified version *)
-Definition modulo_b (n m : Fin) (b : Budget) : (Fin * Budget) :=
-  match m with
-  | fz => (fz, b)  (* Undefined - return 0 *)
-  | _ => 
-      match le_fin_b n m b with
-      | (true, b') => (n, b')
-      | (false, b') => (fz, b')
-      end
-  end.
-
-(* Select destination based on pattern state and phase *)
-Definition pseudo_random_select_b (tp : TunnelingPattern) 
-                                  (candidates : list Fin) 
-                                  (phase : Fin) 
-                                  (b : Budget)
-  : (option Fin * Budget) :=
-  match candidates, b with
-  | [], _ => (None, b)
-  | _, fz => (None, fz)
-  | _, _ =>
-      match count_list_b candidates b with
-      | (list_size, b1) =>
-          (* Combine pattern strength, phase, and history length for selection *)
-          match count_list_b (tunnel_history tp) b1 with
-          | (history_len, b2) =>
-              match add_fin (fst (strength (base_pattern tp))) phase b2 with
-              | (sum1, b3) =>
-                  match add_fin sum1 history_len b3 with
-                  | (index_raw, b4) =>
-                      match modulo_b index_raw list_size b4 with
-                      | (index, b5) =>
-                          nth_fin_b candidates index b5
-                      end
-                  end
-              end
+      | (true, b'') => (e, b'', fs fz)
+      | (false, b'') =>
+          match write_get_entropy_at loc rest b'' with
+          | (result, b''', h) => (result, b''', fs h)
           end
       end
   end.
 
-(******************************************************************************)
-(* TUNNELING MECHANICS - The heart of the system                             *)
-(******************************************************************************)
+Instance get_entropy_write : WriteOperation (Fin * EntropyMap) Fin := {
+  write_op := fun '(loc, emap) => write_get_entropy_at loc emap
+}.
 
-(* Calculate tunneling cost - emerges from entropy gradient *)
-Definition calculate_tunnel_cost (tp : TunnelingPattern) 
-                                (target : Fin) 
-                                (emap : EntropyMap) 
-                                (b : Budget)
-  : (Fin * Budget) :=
-  match get_entropy_at_b (location (base_pattern tp)) emap b with
-  | (source_ent, b1) =>
-      match get_entropy_at_b target emap b1 with
-      | (target_ent, b2) =>
-          (* Cost emerges from entropy difference *)
-          match le_fin_b source_ent target_ent b2 with
-          | (true, b3) =>
-              (* Tunneling to higher entropy - cheaper *)
-              match sub_fin target_ent source_ent b3 with
-              | (ent_diff, b4) =>
-                  (* Cost is inverse of entropy gain - high gain = low cost *)
-                  match le_fin_b ent_diff well_mid_entropy b4 with
-                  | (true, b5) => (well_mid_entropy, b5)  (* Min cost: 2 *)
-                  | (false, b5) => (well_edge_entropy, b5) (* Even cheaper: 1 *)
-                  end
-              end
-          | (false, b3) =>
-              (* Tunneling to lower entropy - expensive *)
-              match sub_fin source_ent target_ent b3 with
-              | (ent_loss, b4) =>
-                  (* Cost proportional to entropy loss *)
-                  match add_fin well_mid_entropy ent_loss b4 with
-                  | (cost, b5) => (cost, b5)
-                  end
-              end
-          end
-      end
-  end.
-
-(* Main entropy tunnel function *)
-Definition entropy_tunnel_b (tp : TunnelingPattern) 
-                           (emap : EntropyMap) 
-                           (phase : Fin)
-  : (option (Fin * Fin) * Budget) :=  (* Returns (location, cost) *)
-  match can_tunnel_from_b (location (base_pattern tp)) emap (tunnel_budget tp) with
-  | (false, b') => (None, b')
-  | (true, b') =>
-      match find_high_entropy_locations_b emap b' with
-      | (candidates, b'') =>
-          match pseudo_random_select_b tp candidates phase b'' with
-          | (None, b''') => (None, b''')
-          | (Some target, b''') =>
-              match calculate_tunnel_cost tp target emap b''' with
-              | (cost, b4) =>
-                  (* Check if we can afford it *)
-                  match le_fin_b cost b4 b4 with
-                  | (true, b5) => (Some (target, cost), b5)
-                  | (false, b5) => (None, b5)  (* Too expensive *)
-                  end
-              end
-          end
-      end
-  end.
-
-(* Apply tunneling to pattern - depletes both pattern and budget *)
-Definition tunnel_pattern_b (tp : TunnelingPattern) 
-                           (emap : EntropyMap) 
-                           (phase : Fin)
-  : TunnelingPattern :=
-  match entropy_tunnel_b tp emap phase with
-  | (None, remaining_budget) => 
-      (* Couldn't tunnel - just update budget *)
-      {| base_pattern := base_pattern tp;
-         tunnel_budget := remaining_budget;
-         tunnel_history := tunnel_history tp |}
-  | (Some (new_loc, cost), remaining_budget) =>
-      (* Successful tunnel - pay the cost *)
-      match sub_fin remaining_budget cost remaining_budget with
-      | (final_budget, _) =>
-          (* Tunneling weakens the pattern *)
-          match decay_with_budget (strength (base_pattern tp)) final_budget with
-          | (new_strength, b') =>
-              {| base_pattern := {| location := new_loc;
-                                   strength := new_strength |};
-                 tunnel_budget := b';
-                 tunnel_history := new_loc :: tunnel_history tp |}
-          end
-      end
-  end.
-
-(******************************************************************************)
-(* ENTROPY FIELD OPERATIONS                                                   *)
-(******************************************************************************)
-
-(* Create entropy well - costs budget to establish *)
-Definition create_entropy_well_b (center : Fin) (b : Budget) 
-  : (EntropyMap * Budget) :=
+(* Check if location has sufficient entropy - WRITE operation *)
+Definition write_check_tunnel_condition (loc : Fin) (emap : EntropyMap) 
+                                       (threshold : Fin) (b : Budget)
+  : (bool * Budget * Heat) :=
   match b with
-  | fz => ([], fz)
-  | fs b1 =>
-      match b1 with
-      | fz => ([(center, well_center_entropy)], fz)
-      | fs b2 =>
-          match safe_succ_b center b2 with
-          | (next, b3) =>
-              match b3 with
-              | fz => ([(center, well_center_entropy);
-                       (next, well_mid_entropy)], fz)
-              | fs b4 =>
-                  match safe_succ_b next b4 with
-                  | (next2, b5) =>
-                      ([(center, well_center_entropy);
-                        (next, well_mid_entropy);
-                        (next2, well_edge_entropy)], b5)
-                  end
-              end
+  | fz => (false, fz, fz)
+  | fs b' =>
+      match write_get_entropy_at loc emap b' with
+      | (entropy, b'', h1) =>
+          match le_fin_b threshold entropy b'' with
+          | (sufficient, b''') => (sufficient, b''', fs h1)
           end
       end
   end.
 
-(* Entropy diffusion - costs budget to compute *)
-Fixpoint diffuse_entropy_b (emap : EntropyMap) (b : Budget) 
-  : (EntropyMap * Budget) :=
-  match emap, b with
-  | [], _ => ([], b)
-  | _, fz => ([], fz)
-  | (loc, ent) :: rest, fs b' =>
-      let new_ent := match ent with
-                     | fz => fz
-                     | fs fz => fs fz
-                     | fs (fs e) => fs e
-                     end in
-      match diffuse_entropy_b rest b' with
-      | (diffused_rest, b'') => ((loc, new_ent) :: diffused_rest, b'')
+Instance check_tunnel_write : WriteOperation (Fin * EntropyMap * Fin) bool := {
+  write_op := fun '(loc, emap, thresh) => write_check_tunnel_condition loc emap thresh
+}.
+
+(* Tunnel to location - WRITE operation *)
+Definition write_tunnel_jump (tp : TunnelingPattern) (target : Fin) 
+                            (emap : EntropyMap) (b : Budget)
+  : (TunnelingPattern * Budget * Heat) :=
+  match b with
+  | fz => (tp, fz, fz)
+  | fs b' =>
+      (* Check tunnel condition *)
+      let threshold := tunnel_threshold_dynamic tp in
+      match write_check_tunnel_condition target emap threshold b' with
+      | (true, b'', h1) =>
+          (* Can tunnel - update pattern *)
+          let new_pattern := {| location := target;
+                               strength := strength (base_pattern tp) |} in
+          ({| base_pattern := new_pattern;
+              tunnel_budget := tunnel_budget tp;
+              tunnel_history := location (base_pattern tp) :: tunnel_history tp |},
+           b'', h1)
+      | (false, b'', h1) =>
+          (* Cannot tunnel - stay in place *)
+          (tp, b'', h1)
       end
   end.
 
-(* Pattern creates entropy at its location - costs budget *)
-Definition pattern_creates_entropy_b (tp : TunnelingPattern) 
-                                    (emap : EntropyMap)
-  : (EntropyMap * Budget) :=
-  match get_entropy_at_b (location (base_pattern tp)) emap (tunnel_budget tp) with
-  | (current, b1) =>
-      match safe_succ_b current b1 with
-      | (new_entropy, b2) =>
-          ((location (base_pattern tp), new_entropy) :: emap, b2)
-      end
+Instance tunnel_jump_write : WriteOperation (TunnelingPattern * Fin * EntropyMap) 
+                                           TunnelingPattern := {
+  write_op := fun '(tp, target, emap) => write_tunnel_jump tp target emap
+}.
+
+(* Create entropy gradient - WRITE operation *)
+Definition write_create_gradient (center : Fin) (radius : Fin) (b : Budget)
+  : (EntropyMap * Budget * Heat) :=
+  match b with
+  | fz => ([], fz, fz)
+  | fs b' =>
+      (* Simple gradient: low at center, high at edges *)
+      let map := [(center, fz);                    (* Center: zero entropy *)
+                  (fs center, fs fz);               (* Near: low entropy *)
+                  (fs (fs center), fs (fs fz))] in  (* Far: higher entropy *)
+      (map, b', fs fz)
   end.
 
-(* Example entropy map - using parameters *)
-Definition example_entropy_map : EntropyMap :=
-  [(fz, high_entropy);
-   (tunnel_threshold, medium_entropy);  (* reusing threshold as location 3 *)
-   (well_center_entropy, high_entropy); (* reusing as location 4 *)
-   (fs (fs (fs (fs (fs fz)))), low_entropy)].
+Instance create_gradient_write : WriteOperation (Fin * Fin) EntropyMap := {
+  write_op := fun '(center, radius) => write_create_gradient center radius
+}.
 
-(* Chain tunneling - Multiple hops *)
-Fixpoint tunnel_chain_b (tp : TunnelingPattern) 
-                        (emap : EntropyMap) 
-                        (phase : Fin) 
-                        (max_hops : Fin)
-  : TunnelingPattern :=
-  match max_hops with
-  | fz => tp
-  | fs h' =>
-      match tunnel_budget tp with
-      | fz => tp  (* Out of budget - stop *)
-      | _ =>
-          let tp' := tunnel_pattern_b tp emap phase in
-          match fin_eq_b (location (base_pattern tp)) 
-                        (location (base_pattern tp')) 
-                        (tunnel_budget tp') with
-          | (true, _) => tp'  (* Didn't move - stop *)
-          | (false, _) =>
-              match safe_succ_b phase (tunnel_budget tp') with
-              | (next_phase, _) =>
-                  tunnel_chain_b tp' emap next_phase h'
-              end
+(* Tunnel through well - WRITE operation *)
+Definition write_tunnel_through_well (tp : TunnelingPattern) (w : EntropyWell) 
+                                    (exit_loc : Fin) (b : Budget)
+  : (TunnelingPattern * Budget * Heat) :=
+  match b with
+  | fz => (tp, fz, fz)
+  | fs b' =>
+      (* First jump to well center (low entropy) *)
+      let center_map := [(well_center w, fz)] in
+      match write_tunnel_jump tp (well_center w) center_map b' with
+      | (tp_at_center, b'', h1) =>
+          (* Then jump to exit (needs traversal) *)
+          let exit_map := [(exit_loc, well_depth w)] in
+          match write_tunnel_jump tp_at_center exit_loc exit_map b'' with
+          | (tp_final, b''', h2) => (tp_final, b''', add_heat h1 h2)
           end
+      end
+  end.
+
+Instance tunnel_through_well_write : WriteOperation (TunnelingPattern * EntropyWell * Fin)
+                                                   TunnelingPattern := {
+  write_op := fun '(tp, w, exit) => write_tunnel_through_well tp w exit
+}.
+
+(* Find path through entropy field - WRITE operation *)
+Fixpoint write_find_tunnel_path (start target : Fin) (emap : EntropyMap) 
+                               (fuel : Fin) (b : Budget)
+  : (list Fin * Budget * Heat) :=
+  match fuel, b with
+  | fz, _ => ([start], b, fz)
+  | _, fz => ([start], fz, fz)
+  | fs fuel', fs b' =>
+      if fin_eq start target then
+        ([target], b', fs fz)
+      else
+        (* Try next step toward target *)
+        let next := if le_fin start target then fs start else start in
+        match write_get_entropy_at next emap b' with
+        | (entropy, b'', h1) =>
+            (* Check if we can tunnel through this entropy *)
+            match le_fin_b (fs fz) entropy b'' with  (* Simple threshold *)
+            | (true, b''') =>
+                match write_find_tunnel_path next target emap fuel' b''' with
+                | (path, b'''', h2) => (start :: path, b'''', add_heat h1 h2)
+                end
+            | (false, b''') =>
+                (* Cannot tunnel here *)
+                ([start], b''', h1)
+            end
+        end
+  end.
+
+Instance find_path_write : WriteOperation (Fin * Fin * EntropyMap * Fin) (list Fin) := {
+  write_op := fun '(start, target, emap, fuel) => write_find_tunnel_path start target emap fuel
+}.
+
+(* Decay tunnel capability - WRITE operation *)
+Definition write_decay_tunnel_capability (tp : TunnelingPattern) (b : Budget)
+  : (TunnelingPattern * Budget * Heat) :=
+  match b with
+  | fz => (tp, fz, fz)
+  | fs b' =>
+      (* Decay pattern strength after tunneling *)
+      match decay_with_budget (strength (base_pattern tp)) b' with
+      | (new_strength, b'') =>
+          let new_pattern := {| location := location (base_pattern tp);
+                               strength := new_strength |} in
+          ({| base_pattern := new_pattern;
+              tunnel_budget := tunnel_budget tp;
+              tunnel_history := tunnel_history tp |}, b'', fs fz)
+      end
+  end.
+
+Instance decay_tunnel_write : WriteOperation TunnelingPattern TunnelingPattern := {
+  write_op := write_decay_tunnel_capability
+}.
+
+(******************************************************************************)
+(* COMPOSITE OPERATIONS                                                       *)
+(******************************************************************************)
+
+(* Attempt tunneling with decay - combines multiple operations *)
+Definition tunnel_with_decay (tp : TunnelingPattern) (target : Fin) 
+                            (emap : EntropyMap) (b : Budget)
+  : (TunnelingPattern * Budget) :=
+  match write_tunnel_jump tp target emap b with
+  | (tp', b', h1) =>
+      match write_decay_tunnel_capability tp' b' with
+      | (tp'', b'', h2) => (tp'', b'')
       end
   end.
 
@@ -344,40 +312,32 @@ Fixpoint tunnel_chain_b (tp : TunnelingPattern)
 (******************************************************************************)
 
 Definition TunnelingPattern_ext := TunnelingPattern.
+Definition EntropyWell_ext := EntropyWell.
 Definition EntropyMap_ext := EntropyMap.
-Definition entropy_tunnel_b_ext := entropy_tunnel_b.
-Definition tunnel_pattern_b_ext := tunnel_pattern_b.
+Definition tunnel_with_decay_ext := tunnel_with_decay.
 
 (******************************************************************************)
 (* PHILOSOPHICAL NOTE                                                         *)
 (******************************************************************************)
 
-(* Entropy tunneling in void mathematics embodies several deep principles:
+(* Entropy tunneling in void mathematics embodies resource truth:
    
-   1. EMERGENT COSTS - Tunneling cost isn't fixed but emerges from the
-      entropy gradient. Moving with the gradient (to higher entropy) is
-      cheap, against it is expensive. The universe has preferences.
+   1. ONE TICK PER OPERATION - Checking entropy, tunneling, pathfinding -
+      all cost exactly one tick. Difficulty emerges from iteration.
    
-   2. NO UNIVERSAL PRICES - There's no "base cost" decreed from above.
-      Each tunnel's cost depends on the actual entropy landscape and the
-      pattern's relationship to it.
+   2. NO MAGIC THRESHOLDS - Tunnel conditions emerge from pattern strength
+      and local entropy, not from arbitrary constants.
    
-   3. ENTROPY GRADIENTS - Moving from high to low entropy costs proportionally
-      to the entropy lost, while gaining entropy can be almost free.
+   3. ENTROPY IS CONTEXTUAL - Wells and gradients are simple structures.
+      Complexity comes from navigating them with limited resources.
    
-   4. HISTORY WEIGHS - Past tunnels affect future destinations, creating
-      path dependence in the pattern's journey.
+   4. HISTORY MATTERS - Where you've been affects where you can go,
+      but through accumulated state, not magic penalties.
    
-   5. OBSERVATION DEPLETES - Even finding high-entropy regions costs budget,
-      making the search itself a commitment of resources.
+   5. DECAY IS UNIFORM - Every tunnel attempt weakens patterns by one
+      decay step. No special "difficult" regions with higher costs.
    
-   The tunneling pattern carries its own budget, separate from but depleting
-   with each operation. Patterns naturally flow toward high entropy regions
-   (cheap moves) but can force themselves against the gradient if they have
-   enough budget.
-   
-   This models a universe where costs emerge from relationships and gradients,
-   not from fixed laws. The same tunnel can be cheap or expensive depending
-   on the entropy landscape - a truly dynamic, contextual mathematics. *)
+   This models quantum tunneling where probability emerges from resource
+   constraints, not from arbitrary potential barriers. *)
 
 End Void_Entropy_Tunnel.

@@ -6,6 +6,7 @@ Require Import void_finite_minimal.
 Require Import void_probability_minimal.
 Require Import void_pattern.
 Require Import void_arithmetic.
+Require Import void_information_theory.
 Require Import Coq.Lists.List.
 Import ListNotations.
 
@@ -14,12 +15,40 @@ Module CrisisRelocation.
 Import Void_Pattern.
 Import Void_Probability_Minimal.
 Import Void_Arithmetic.
+Import Void_Information_Theory.
 
 (******************************************************************************)
-(* CRISIS COSTS MORE - This is the philosophical heart                        *)
+(* DYNAMIC CRISIS COSTS - Emerge from actual resource scarcity               *)
 (******************************************************************************)
 
-Definition CRISIS_MULTIPLIER : Fin := fs (fs (fs fz)).  (* 3x cost in crisis *)
+(* Crisis multiplier based on actual resource scarcity - READ operation *)
+Definition crisis_cost_multiplier (remaining_budget initial_budget : Budget) : Fin :=
+  match remaining_budget with
+  | fz => fs (fs (fs (fs fz)))                          (* No budget: 4x *)
+  | fs fz => fs (fs (fs fz))                            (* Very low: 3x *)
+  | fs (fs fz) => fs (fs fz)                            (* Low: 2x *)
+  | _ => fs fz                                          (* Normal: 1x *)
+  end.
+
+Instance crisis_multiplier_read : ReadOperation Budget Fin := {
+  read_op := fun b => crisis_cost_multiplier b b  (* Compare to self for simplicity *)
+}.
+
+(* Crisis level based on available energy - READ operation *)
+Definition assess_crisis_level (local_energy : Budget) : Fin :=
+  match local_energy with
+  | fz => fz           (* Severe *)
+  | fs fz => fs fz     (* Moderate *)
+  | _ => fs (fs fz)    (* Mild *)
+  end.
+
+Instance crisis_level_read : ReadOperation Budget Fin := {
+  read_op := assess_crisis_level
+}.
+
+(******************************************************************************)
+(* CONSTANTS AND HELPERS                                                     *)
+(******************************************************************************)
 
 (* Constants *)
 Definition five : Fin := fs (fs (fs (fs (fs fz)))).
@@ -71,6 +100,10 @@ Fixpoint find_b {A : Type} (f : A -> Budget -> (bool * Budget))
       end
   end.
 
+(******************************************************************************)
+(* CRISIS STRATEGIES WITH DYNAMIC COSTS                                      *)
+(******************************************************************************)
+
 (* Different crisis response strategies *)
 Inductive CrisisStrategy :=
   | Scatter        (* Jump to random location - costs medium *)
@@ -82,8 +115,8 @@ Inductive CrisisStrategy :=
   | Explore        (* Small jumps - costs medium *)
   | Oscillate.     (* Alternate - costs medium *)
 
-(* Strategy costs reflect desperation *)
-Definition strategy_cost (s : CrisisStrategy) : Fin :=
+(* Strategy costs reflect desperation - but now context-aware *)
+Definition strategy_base_cost (s : CrisisStrategy) : Fin :=
   match s with
   | Scatter => fs (fs fz)         (* 2 *)
   | Cluster => fs (fs (fs fz))    (* 3 *)
@@ -95,6 +128,29 @@ Definition strategy_cost (s : CrisisStrategy) : Fin :=
   | Oscillate => fs (fs fz)       (* 2 *)
   end.
 
+(* Dynamic strategy cost based on crisis level - READ operation *)
+Definition strategy_cost_dynamic (s : CrisisStrategy) (crisis_level : Fin) : Fin :=
+  let base_cost := strategy_base_cost s in
+  match crisis_level with
+  | fz => 
+      (* Severe crisis: desperate strategies cost more *)
+      match s with
+      | Fragment => fs (fs (fs (fs (fs fz))))  (* Fragment becomes 5x in crisis *)
+      | Scatter => fs (fs (fs fz))             (* Scatter becomes 3x *)
+      | _ => base_cost
+      end
+  | fs fz =>
+      (* Moderate crisis: slight increase *)
+      match add_fin base_cost (fs fz) initial_budget with
+      | (increased, _) => increased
+      end
+  | _ => base_cost  (* Mild crisis: normal costs *)
+  end.
+
+Instance strategy_cost_read : ReadOperation (CrisisStrategy * Fin) Fin := {
+  read_op := fun '(strategy, crisis_level) => strategy_cost_dynamic strategy crisis_level
+}.
+
 (* Choose strategy based on pattern and available budget *)
 Definition choose_crisis_strategy (p : Pattern) (crisis_level : Fin) (b : Budget) 
   : (CrisisStrategy * Budget) :=
@@ -104,7 +160,8 @@ Definition choose_crisis_strategy (p : Pattern) (crisis_level : Fin) (b : Budget
       match fst (strength p), crisis_level with
       | fs fz, fz => 
           (* Weak + severe = scatter if affordable *)
-          match le_fin_b (strategy_cost Scatter) b b with
+          let scatter_cost := strategy_cost_dynamic Scatter crisis_level in
+          match le_fin_b scatter_cost b b with
           | (true, b') => (Scatter, b')
           | (false, b') => (Hibernate, b')
           end
@@ -222,31 +279,34 @@ Definition oscillate_location (loc : Fin) (phase : Fin) (b : Budget)
   : (Fin * Budget) :=
   match even_fin_b phase b with
   | (true, b') => (fz, b')
-  | (false, b') => (fs (fs (fs (fs (fs (fs (fs (fs (fs fz)))))))), b')  (* 9 *)
+  | (false, b') => (nine, b')
   end.
 
-(* Main crisis response - COSTS MULTIPLY IN CRISIS *)
+(******************************************************************************)
+(* MAIN CRISIS RESPONSE WITH DYNAMIC COSTS                                   *)
+(******************************************************************************)
+
+(* Main crisis response - costs multiply based on actual scarcity! *)
 Definition crisis_response (p : Pattern) (local_energy : Budget) 
                           (context : list Pattern) (global_phase : Fin) 
                           (b : Budget) : (list Pattern * Budget) :=
-  let crisis_level := match local_energy with
-                      | fz => fz           (* Severe *)
-                      | fs fz => fs fz     (* Moderate *)
-                      | _ => fs (fs fz)    (* Mild *)
-                      end in
+  let crisis_level := assess_crisis_level local_energy in
   
-  (* Crisis multiplies costs! *)
+  (* Crisis budget multiplier based on actual resource scarcity *)
+  let crisis_multiplier := crisis_cost_multiplier local_energy b in
   let crisis_budget := match crisis_level with
-                       | fz => b  (* Severe crisis - no multiplier, already bad *)
+                       | fz => b  (* Severe crisis - use full budget, no division *)
                        | _ => 
-                           match div_fin b CRISIS_MULTIPLIER b with
+                           match div_fin b crisis_multiplier b with
                            | (reduced, _, _) => reduced
                            end
                        end in
   
   match choose_crisis_strategy p crisis_level crisis_budget with
   | (strategy, b1) =>
-      match sub_fin b1 (strategy_cost strategy) b1 with
+      (* Calculate dynamic strategy cost *)
+      let strategy_cost := strategy_cost_dynamic strategy crisis_level in
+      match sub_fin b1 strategy_cost b1 with
       | (_, b2) =>
           match strategy with
           | Scatter => 
@@ -393,22 +453,27 @@ Definition CrisisMemory_ext := CrisisMemory.
 Definition crisis_response_ext := crisis_response.
 
 (******************************************************************************)
-(* PHILOSOPHICAL NOTE                                                         *)
+(* PHILOSOPHICAL NOTE - Now with TRUE emergent crisis costs                  *)
 (******************************************************************************)
 
-(* Crisis is expensive. This models the reality that:
+(* Crisis is expensive, but now the expense emerges from actual scarcity:
    
-   1. DESPERATION COSTS - Panic responses waste resources
-   2. CRISIS MULTIPLIES COSTS - Everything is harder in crisis
-   3. FRAGMENTATION IS EXPENSIVE - Breaking apart costs dearly
-   4. MEMORY NEEDS MAINTENANCE - Even remembering crisis costs
-   5. COOPERATION EMERGES - Merge/cluster become rational despite cost
+   1. COSTS SCALE WITH DESPERATION - The less resources available, the higher
+      the multiplier. A 4x crisis multiplier when budget is zero vs 1x when plenty.
    
-   The system shows that crisis creates a vicious cycle: less budget leads
-   to worse decisions which cost more budget. Only hibernate (acceptance)
-   or successful merge (cooperation) can break the cycle.
+   2. STRATEGY COSTS ADAPT - Fragment becomes prohibitively expensive in severe
+      crisis, forcing patterns toward cooperation (merge) or acceptance (hibernate).
    
-   This is thermodynamically honest: crisis states have higher entropy and
-   thus require more energy to navigate. *)
+   3. NO MAGIC CONSTANTS - Crisis level and multipliers emerge from actual
+      resource availability rather than arbitrary 3x multipliers.
+   
+   4. NATURAL COOPERATION - When individual action becomes too expensive,
+      merge and cluster strategies become the rational choice.
+   
+   5. THERMODYNAMIC HONESTY - The system naturally evolves toward the most
+      energy-efficient responses under resource constraints.
+   
+   This models real crisis dynamics: scarcity drives up costs, forcing
+   adaptation toward more efficient collective behaviors. *)
 
 End CrisisRelocation.
