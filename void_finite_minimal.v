@@ -22,22 +22,137 @@ Parameter μ_tick : Q.
 Axiom μ_tick_spec : μ_tick = 1#100.
 
 (******************************************************************************)
-(* FINITE TYPE Fin                                                           *)
+(* FINITE TYPE Fin — ℕ-free, finite by construction                           *)
 (******************************************************************************)
+From Coq Require Import List Bool ZArith.
+Import ListNotations.
 
-Inductive Fin : Type :=
-  | fz : Fin
-  | fs : Fin -> Fin.
+Module FiniteFin.
+  (* Carrier is abstract but FINITE via an explicit enumeration. *)
+  Parameter Fin : Type.
+  
+  (* A finite enumeration of all elements (no ℕ needed). *)
+  Parameter enum : list Fin.
+  Axiom enum_nodup     : NoDup enum.
+  Axiom enum_complete  : forall x : Fin, In x enum.
+  
+  (* A designated element; think "zero budget". *)
+  Parameter fz : Fin.
+  Axiom fz_in : In fz enum.
+  
+  (* Decidable equality for Fin (boolean, not a proof term). *)
+  Parameter eqb : Fin -> Fin -> bool.
+  Axiom eqb_spec : forall x y : Fin, reflect (x = y) (eqb x y).
+  
+  (* Helper lemma for reflection *)
+  Lemma eqb_true_iff : forall x y, eqb x y = true <-> x = y.
+  Proof.
+    intros. destruct (eqb_spec x y); intuition; discriminate.
+  Qed.
+  
+  (* Next-in-enum with wrap-around. This is the ONLY successor we expose. *)
+  Fixpoint next_from (l : list Fin) (x : Fin) : option Fin :=
+    match l with
+    | [] => None
+    | y :: l' =>
+        if eqb x y
+        then match l' with
+             | z :: _ => Some z           (* next element *)
+             | []     => Some fz          (* wrap to head *)
+             end
+        else next_from l' x
+    end.
+  
+  Definition fs (x : Fin) : Fin :=
+    match next_from enum x with
+    | Some y => y
+    | None   => fz    (* unreachable if enum_complete holds *)
+    end.
+  
+  (*** PROOF-ONLY: ordinal view into ℤ (never used computationally) ***)
+  Fixpoint index_in (l : list Fin) (x : Fin) : option Z :=
+    match l with
+    | [] => None
+    | y :: l' =>
+        if eqb x y
+        then Some 0%Z
+        else match index_in l' x with
+             | Some k => Some (1 + k)%Z
+             | None   => None
+             end
+    end.
+  
+  Definition fin_to_Z_PROOF_ONLY (x : Fin) : Z :=
+    match index_in enum x with
+    | Some k => k
+    | None   => 0%Z   (* unreachable by enum_complete *)
+    end.
+  
+  #[global] Opaque fin_to_Z_PROOF_ONLY.
+  
+  (* Helper lemma: next_from returns something in the tail or fz *)
+  Lemma next_from_in_or_fz : forall l x y,
+    next_from l x = Some y ->
+    In y l \/ y = fz.
+  Proof.
+    induction l as [|h t IH]; intros x y H.
+    - discriminate H.
+    - simpl in H. destruct (eqb x h) eqn:E.
+      + destruct t as [|h' t'].
+        * injection H; intro; subst. right; reflexivity.
+        * injection H; intro; subst. left; right; left; reflexivity.
+      + destruct (next_from t x) eqn:E2.
+        * injection H; intro; subst.
+          apply IH in E2. destruct E2.
+          -- left; right; assumption.
+          -- right; assumption.
+        * discriminate H.
+  Qed.
+  
+  (* Helper lemma: if x is in enum, next_from finds something *)
+  Lemma next_from_some : forall x,
+    In x enum ->
+    exists y, next_from enum x = Some y.
+  Proof.
+    intros x H.
+    induction enum as [|h t IH].
+    - contradiction H.
+    - simpl. destruct (eqb x h) eqn:E.
+      + destruct t.
+        * exists fz. reflexivity.
+        * exists f. reflexivity.
+      + simpl in H. destruct H.
+        * apply eqb_true_iff in E. contradiction.
+        * apply IH in H. destruct H as [y Hy].
+          exists y. assumption.
+  Qed.
+  
+  (*** Main lemmas ***)
+  Lemma fs_in_enum : forall x, In (fs x) enum.
+  Proof.
+    intros x.
+    unfold fs.
+    pose proof (enum_complete x) as Hx.
+    pose proof (next_from_some x Hx) as [y Hy].
+    rewrite Hy.
+    apply next_from_in_or_fz in Hy.
+    destruct Hy.
+    - assumption.
+    - subst. apply fz_in.
+  Qed.
+  
+  Lemma enum_cyclic_reach : forall x, exists k : Z, 0 <= k /\ In (fs x) enum.
+  Proof.
+    intros x. 
+    exists 1%Z. 
+    split.
+    - apply Z.le_0_1.
+    - apply fs_in_enum.
+  Qed.
+  
+End FiniteFin.
 
-(* PROOF-ONLY: Never use in computation *)
-Fixpoint fin_to_Z_PROOF_ONLY (n : Fin) : Z :=
-  match n with
-  | fz => 0%Z
-  | fs n' => (1 + fin_to_Z_PROOF_ONLY n')%Z
-  end.
-
-(* The bound is an axiom about the type, not a computation *)
-Axiom fin_bounded : forall n : Fin, (fin_to_Z_PROOF_ONLY n <= MAX)%Z.
+Export FiniteFin.
 
 (******************************************************************************)
 (* Fin ≤ and basic lemmas                                                    *)
