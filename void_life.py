@@ -1,6 +1,6 @@
 """
-void_life_comparison.py - Classical vs Quantum Conway side-by-side
-Shows how finite resources create impossible physics
+void_life_comparison.py - Classical vs Resource-Limited Conway side-by-side
+Shows how finite resources create impossible states
 """
 
 import numpy as np
@@ -41,7 +41,7 @@ class ClassicalConway:
         self.generation = 0
     
     def seed_pattern(self, pattern):
-        """Same initial pattern as quantum version"""
+        """Same initial pattern as resource-limited version"""
         center = self.size // 2
         np.random.seed(42)
         
@@ -86,11 +86,11 @@ class ClassicalConway:
         self.generation += 1
 
 # ============================================================================
-# QUANTUM CONWAY WITH FINITE RESOURCES
+# RESOURCE-LIMITED CONWAY WITH FINITE RESOURCES
 # ============================================================================
 
-class QuantumConway:
-    """Conway with finite resources - creates quantum states"""
+class ResourceLimitedConway:
+    """Conway with finite resources - creates undecidable states"""
     
     def __init__(self, size: int):
         self.size = size
@@ -109,7 +109,7 @@ class QuantumConway:
                 else:
                     budget = Fin(2000)  # High in center
                 
-                cell = {'state': 0, 'budget': budget, 'quantum_charge': 0}
+                cell = {'state': 0, 'budget': budget, 'exhaustion_counter': 0}
                 row.append(cell)
             self.grid.append(row)
     
@@ -131,7 +131,7 @@ class QuantumConway:
                     self.grid[i][j]['budget'] = Fin(80)  # Less budget at edges
     
     def step(self):
-        """Quantum Conway - costs resources"""
+        """Resource-limited Conway - costs resources"""
         new_states = []
         
         for i in range(self.size):
@@ -141,7 +141,7 @@ class QuantumConway:
                 
                 # Count neighbors
                 alive_n = 0
-                quantum_n = 0
+                unknown_n = 0
                 for di in [-1, 0, 1]:
                     for dj in [-1, 0, 1]:
                         if di == 0 and dj == 0:
@@ -151,39 +151,39 @@ class QuantumConway:
                         neighbor_state = self.grid[ni][nj]['state']
                         if neighbor_state == 1:
                             alive_n += 1
-                        elif neighbor_state == -1:  # Quantum
-                            quantum_n += 1
+                        elif neighbor_state == -1:  # Unknown/exhausted
+                            unknown_n += 1
                 
                 # Compute next state
                 if cell['budget'].is_zero():
-                    # No budget - increment quantum charge
-                    cell['quantum_charge'] += 1
-                    if cell['quantum_charge'] > 5:
-                        new_state = -1  # Become quantum
+                    # No budget - increment exhaustion counter
+                    cell['exhaustion_counter'] += 1
+                    if cell['exhaustion_counter'] > 5:
+                        new_state = -1  # Become unknown
                     else:
                         new_state = cell['state']
                 else:
                     # Spend one tick
                     cell['budget'] = cell['budget'] - Fin(1)
                     
-                    if cell['state'] == -1:  # Quantum
-                        if quantum_n >= 2:
-                            new_state = -1  # Stay quantum
+                    if cell['state'] == -1:  # Unknown/exhausted
+                        if unknown_n >= 2:
+                            new_state = -1  # Stay unknown
                         elif alive_n >= 3 and cell['budget'].n > 100:
-                            new_state = 1  # Collapse to alive
+                            new_state = 1  # Recover to alive
                         else:
                             new_state = -1
                     else:
                         # Use scaled integer arithmetic
-                        eff = alive_n * SCALE + quantum_n * HALF
+                        eff = alive_n * SCALE + unknown_n * HALF
                         
                         if cell['state'] == 1:  # Alive
                             if 2 * SCALE <= eff <= 3 * SCALE:
                                 new_state = 1
-                            elif eff > 4 * SCALE and quantum_n > 2:
-                                cell['quantum_charge'] += 1
-                                if cell['quantum_charge'] > 3:
-                                    new_state = -1  # Go quantum
+                            elif eff > 4 * SCALE and unknown_n > 2:
+                                cell['exhaustion_counter'] += 1
+                                if cell['exhaustion_counter'] > 3:
+                                    new_state = -1  # Become unknown
                                 else:
                                     new_state = 1
                             else:
@@ -191,10 +191,10 @@ class QuantumConway:
                         else:  # Dead
                             if 2500 <= eff <= 3500:  # 2.5 to 3.5
                                 new_state = 1  # Birth
-                            elif quantum_n >= 4:
-                                cell['quantum_charge'] += 1
-                                if cell['quantum_charge'] > 2:
-                                    new_state = -1  # Go quantum
+                            elif unknown_n >= 4:
+                                cell['exhaustion_counter'] += 1
+                                if cell['exhaustion_counter'] > 2:
+                                    new_state = -1  # Become unknown
                                 else:
                                     new_state = 0
                             else:
@@ -215,36 +215,36 @@ class QuantumConway:
 # ============================================================================
 
 def run_comparison():
-    """Run classical and quantum Conway side by side"""
+    """Run classical and resource-limited Conway side by side"""
     
     size = 60
     classical = ClassicalConway(size)
-    quantum = QuantumConway(size)
+    resource_limited = ResourceLimitedConway(size)
     
     # Same initial conditions
     classical.seed_pattern('test')
-    quantum.seed_pattern('test')
+    resource_limited.seed_pattern('test')
     
     # Setup visualization
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-    fig.suptitle('Classical vs Quantum Conway: Finite Resources Create New Physics')
+    fig.suptitle('Classical vs Resource-Limited Conway: Finite Resources Create New States')
     
     # Colormaps
     classical_cmap = 'binary'
-    quantum_cmap = LinearSegmentedColormap.from_list('quantum', ['black', 'gold', 'white'])
+    exhausted_cmap = LinearSegmentedColormap.from_list('exhausted', ['black', 'gold', 'white'])
     
     # Stats tracking
     history = {
         'classical_alive': [],
-        'quantum_alive': [],
-        'quantum_unknown': [],
+        'limited_alive': [],
+        'unknown_count': [],
         'total_budget': []
     }
     
     def update(frame):
         # Step both simulations
         classical.step()
-        quantum.step()
+        resource_limited.step()
         
         # Classical visualization
         axes[0, 0].clear()
@@ -253,96 +253,96 @@ def run_comparison():
         axes[0, 0].set_xticks([])
         axes[0, 0].set_yticks([])
         
-        # Quantum visualization
-        quantum_matrix = np.zeros((size, size))
+        # Resource-limited visualization
+        limited_matrix = np.zeros((size, size))
         budget_matrix = np.zeros((size, size))
         
-        alive_q = 0
-        quantum_count = 0
+        alive_limited = 0
+        unknown_count = 0
         total_budget = 0
         
         for i in range(size):
             for j in range(size):
-                cell = quantum.grid[i][j]
+                cell = resource_limited.grid[i][j]
                 state = cell['state']
                 
                 if state == 1:
-                    quantum_matrix[i][j] = 1.0
-                    alive_q += 1
+                    limited_matrix[i][j] = 1.0
+                    alive_limited += 1
                 elif state == 0:
-                    quantum_matrix[i][j] = 0.0
-                else:  # Quantum state
-                    quantum_matrix[i][j] = 0.5
-                    quantum_count += 1
+                    limited_matrix[i][j] = 0.0
+                else:  # Unknown/exhausted state
+                    limited_matrix[i][j] = 0.5
+                    unknown_count += 1
                 
                 budget_matrix[i][j] = cell['budget'].n
                 total_budget += cell['budget'].n
         
         axes[0, 1].clear()
-        axes[0, 1].imshow(quantum_matrix, cmap=quantum_cmap, vmin=-1, vmax=1)
-        axes[0, 1].set_title(f'Quantum Conway - Gen {quantum.generation}')
+        axes[0, 1].imshow(limited_matrix, cmap=exhausted_cmap, vmin=-1, vmax=1)
+        axes[0, 1].set_title(f'Resource-Limited Conway - Gen {resource_limited.generation}')
         axes[0, 1].set_xticks([])
         axes[0, 1].set_yticks([])
         
         # Budget heatmap
         axes[0, 2].clear()
         im = axes[0, 2].imshow(budget_matrix, cmap='hot', vmin=0, vmax=2000)
-        axes[0, 2].set_title('Remaining Energy Budget')
+        axes[0, 2].set_title('Remaining Computational Budget')
         axes[0, 2].set_xticks([])
         axes[0, 2].set_yticks([])
         
         # Classical stats
         classical_alive = np.sum(classical.grid)
         history['classical_alive'].append(classical_alive)
-        history['quantum_alive'].append(alive_q)
-        history['quantum_unknown'].append(quantum_count)
+        history['limited_alive'].append(alive_limited)
+        history['unknown_count'].append(unknown_count)
         history['total_budget'].append(total_budget)
         
         # Population dynamics
         axes[1, 0].clear()
         x = list(range(len(history['classical_alive'])))
         axes[1, 0].plot(x, history['classical_alive'], 'b-', label='Classical Alive')
-        axes[1, 0].plot(x, history['quantum_alive'], 'g-', label='Quantum Alive')
-        axes[1, 0].plot(x, history['quantum_unknown'], 'gold', label='Quantum Unknown', linewidth=2)
+        axes[1, 0].plot(x, history['limited_alive'], 'g-', label='Limited Alive')
+        axes[1, 0].plot(x, history['unknown_count'], 'gold', label='Unknown/Exhausted', linewidth=2)
         axes[1, 0].set_xlabel('Generation')
         axes[1, 0].set_ylabel('Cell Count')
         axes[1, 0].set_title('Population Dynamics')
         axes[1, 0].legend()
         axes[1, 0].grid(True, alpha=0.3)
         
-        # Energy depletion
+        # Resource depletion
         axes[1, 1].clear()
         axes[1, 1].plot(x, history['total_budget'], 'r-', linewidth=2)
         axes[1, 1].set_xlabel('Generation')
         axes[1, 1].set_ylabel('Total Budget')
-        axes[1, 1].set_title('Thermodynamic Cost of Computation')
+        axes[1, 1].set_title('Computational Cost of Decisions')
         axes[1, 1].grid(True, alpha=0.3)
         
         # Key differences text
         axes[1, 2].clear()
         axes[1, 2].axis('off')
         
-        differences = f"""KEY DIFFERENCES AT GEN {quantum.generation}:
+        differences = f"""KEY DIFFERENCES AT GEN {resource_limited.generation}:
         
 Classical Conway:
 - Two states only (alive/dead)
 - Computation is free
 - {classical_alive:.0f} living cells
 - Patterns cycle forever
-- No energy concept
+- No resource concept
 
-Quantum Conway:
+Resource-Limited Conway:
 - THREE states (alive/dead/unknown)
-- Every computation costs energy
-- {alive_q:.0f} alive, {quantum_count:.0f} quantum
+- Every decision costs resources
+- {alive_limited:.0f} alive, {unknown_count:.0f} unknown
 - Budget remaining: {total_budget:.0f}
-- Quantum boundaries emerge
+- Unknown zones emerge at boundaries
 
 IMPOSSIBLE IN CLASSICAL:
-- Quantum frame at edges (gold)
-- Energy exhaustion zones
-- Three-state superposition
-- Thermodynamic reality
+- Unknown state at edges (gold)
+- Resource exhaustion zones
+- Three-valued logic (T/F/U)
+- Computational reality
         """
         
         axes[1, 2].text(0.1, 0.5, differences, fontsize=10, 
@@ -356,8 +356,8 @@ IMPOSSIBLE IN CLASSICAL:
 
 if __name__ == "__main__":
     print("=" * 70)
-    print("CLASSICAL vs QUANTUM CONWAY")
-    print("Finite resources create physics impossible in classical mathematics")
+    print("CLASSICAL vs RESOURCE-LIMITED CONWAY")
+    print("Finite resources create states impossible in classical mathematics")
     print("=" * 70)
     
     run_comparison()
