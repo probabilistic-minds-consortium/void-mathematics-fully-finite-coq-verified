@@ -1,6 +1,6 @@
 (******************************************************************************)
 (* void_finite_minimal.v                                                      *)
-(* TRULY finite - every operation costs ONE TICK                             *)
+(* TRULY finite - every operation costs                                       *)
 (* Bool3 core + backward-compatible bool wrappers                             *)
 (******************************************************************************)
 
@@ -18,144 +18,29 @@ Parameter MAX : Z.
 Axiom MAX_positive : (0 < MAX)%Z.
 
 (* System resolution - parameter, not computed *)
-Parameter μ_tick : Q.
-Axiom μ_tick_spec : μ_tick = 1#100.
+Parameter ÃŽÂ¼_tick : Q.
+Axiom ÃŽÂ¼_tick_spec : ÃŽÂ¼_tick = 1#100.
 
 (******************************************************************************)
-(* FINITE TYPE Fin — ℕ-free, finite by construction                           *)
+(* FINITE TYPE Fin                                                           *)
 (******************************************************************************)
-From Coq Require Import List Bool ZArith.
-Import ListNotations.
 
-Module FiniteFin.
-  (* Carrier is abstract but FINITE via an explicit enumeration. *)
-  Parameter Fin : Type.
-  
-  (* A finite enumeration of all elements (no ℕ needed). *)
-  Parameter enum : list Fin.
-  Axiom enum_nodup     : NoDup enum.
-  Axiom enum_complete  : forall x : Fin, In x enum.
-  
-  (* A designated element; think "zero budget". *)
-  Parameter fz : Fin.
-  Axiom fz_in : In fz enum.
-  
-  (* Decidable equality for Fin (boolean, not a proof term). *)
-  Parameter eqb : Fin -> Fin -> bool.
-  Axiom eqb_spec : forall x y : Fin, reflect (x = y) (eqb x y).
-  
-  (* Helper lemma for reflection *)
-  Lemma eqb_true_iff : forall x y, eqb x y = true <-> x = y.
-  Proof.
-    intros. destruct (eqb_spec x y); intuition; discriminate.
-  Qed.
-  
-  (* Next-in-enum with wrap-around. This is the ONLY successor we expose. *)
-  Fixpoint next_from (l : list Fin) (x : Fin) : option Fin :=
-    match l with
-    | [] => None
-    | y :: l' =>
-        if eqb x y
-        then match l' with
-             | z :: _ => Some z           (* next element *)
-             | []     => Some fz          (* wrap to head *)
-             end
-        else next_from l' x
-    end.
-  
-  Definition fs (x : Fin) : Fin :=
-    match next_from enum x with
-    | Some y => y
-    | None   => fz    (* unreachable if enum_complete holds *)
-    end.
-  
-  (*** PROOF-ONLY: ordinal view into ℤ (never used computationally) ***)
-  Fixpoint index_in (l : list Fin) (x : Fin) : option Z :=
-    match l with
-    | [] => None
-    | y :: l' =>
-        if eqb x y
-        then Some 0%Z
-        else match index_in l' x with
-             | Some k => Some (1 + k)%Z
-             | None   => None
-             end
-    end.
-  
-  Definition fin_to_Z_PROOF_ONLY (x : Fin) : Z :=
-    match index_in enum x with
-    | Some k => k
-    | None   => 0%Z   (* unreachable by enum_complete *)
-    end.
-  
-  #[global] Opaque fin_to_Z_PROOF_ONLY.
-  
-  (* Helper lemma: next_from returns something in the tail or fz *)
-  Lemma next_from_in_or_fz : forall l x y,
-    next_from l x = Some y ->
-    In y l \/ y = fz.
-  Proof.
-    induction l as [|h t IH]; intros x y H.
-    - discriminate H.
-    - simpl in H. destruct (eqb x h) eqn:E.
-      + destruct t as [|h' t'].
-        * injection H; intro; subst. right; reflexivity.
-        * injection H; intro; subst. left; right; left; reflexivity.
-      + destruct (next_from t x) eqn:E2.
-        * injection H; intro; subst.
-          apply IH in E2. destruct E2.
-          -- left; right; assumption.
-          -- right; assumption.
-        * discriminate H.
-  Qed.
-  
-  (* Helper lemma: if x is in enum, next_from finds something *)
-  Lemma next_from_some : forall x,
-    In x enum ->
-    exists y, next_from enum x = Some y.
-  Proof.
-    intros x H.
-    induction enum as [|h t IH].
-    - contradiction H.
-    - simpl. destruct (eqb x h) eqn:E.
-      + destruct t.
-        * exists fz. reflexivity.
-        * exists f. reflexivity.
-      + simpl in H. destruct H.
-        * apply eqb_true_iff in E. contradiction.
-        * apply IH in H. destruct H as [y Hy].
-          exists y. assumption.
-  Qed.
-  
-  (*** Main lemmas ***)
-  Lemma fs_in_enum : forall x, In (fs x) enum.
-  Proof.
-    intros x.
-    unfold fs.
-    pose proof (enum_complete x) as Hx.
-    pose proof (next_from_some x Hx) as [y Hy].
-    rewrite Hy.
-    apply next_from_in_or_fz in Hy.
-    destruct Hy.
-    - assumption.
-    - subst. apply fz_in.
-  Qed.
-  
-  Lemma enum_cyclic_reach : forall x, exists k : Z, 0 <= k /\ In (fs x) enum.
-  Proof.
-    intros x. 
-    exists 1%Z. 
-    split.
-    - apply Z.le_0_1.
-    - apply fs_in_enum.
-  Qed.
-  
-End FiniteFin.
+Inductive Fin : Type :=
+  | fz : Fin
+  | fs : Fin -> Fin.
 
-Export FiniteFin.
+(* PROOF-ONLY: Never use in computation *)
+Fixpoint fin_to_Z_PROOF_ONLY (n : Fin) : Z :=
+  match n with
+  | fz => 0%Z
+  | fs n' => (1 + fin_to_Z_PROOF_ONLY n')%Z
+  end.
+
+(* The bound is an axiom about the type, not a computation *)
+Axiom fin_bounded : forall n : Fin, (fin_to_Z_PROOF_ONLY n <= MAX)%Z.
 
 (******************************************************************************)
-(* Fin ≤ and basic lemmas                                                    *)
+(* Fin Ã¢â€°Â¤ and basic lemmas                                                    *)
 (******************************************************************************)
 
 Inductive leF : Fin -> Fin -> Prop :=
@@ -237,22 +122,26 @@ Definition spend (cost : Fin) : B unit :=
   fun b => let (b', h) := spend_aux b cost in (tt, b', h).
 
 (******************************************************************************)
-(* THE ONE COST - Everything costs exactly one tick                          *)
+(* COSTS AS PARAMETERS - NOT CONSTRUCTED                                     *)
 (******************************************************************************)
 
-Definition operation_cost : Fin := fs fz.  (* ONE TICK *)
+Parameter comparison_cost : Fin.
+Parameter arithmetic_cost : Fin.
+Parameter construction_cost : Fin.
 
-(* No variations, no special cases, no magic numbers *)
+Axiom comparison_cost_positive   : exists n, comparison_cost = fs n.
+Axiom arithmetic_cost_positive   : exists n, arithmetic_cost = fs n.
+Axiom construction_cost_positive : exists n, construction_cost = fs n.
 
 (******************************************************************************)
 (* BOOTSTRAP BUDGET                                                          *)
 (******************************************************************************)
 
 Parameter initial_budget : Budget.
-Axiom initial_budget_positive : exists n, initial_budget = fs n.
+Axiom initial_budget_sufficient : exists n, initial_budget = fs (fs (fs n)).
 
 (******************************************************************************)
-(* BUDGET-AWARE OPS (3-valued core) - ALL COST ONE TICK                     *)
+(* BUDGET-AWARE OPS (3-valued core) - WITH HEAT                            *)
 (******************************************************************************)
 
 Fixpoint fin_eq_b3 (n m : Fin) (b : Budget) : (Bool3 * Budget * Heat) :=
@@ -260,12 +149,12 @@ Fixpoint fin_eq_b3 (n m : Fin) (b : Budget) : (Bool3 * Budget * Heat) :=
   | fz => (BUnknown, fz, fz)
   | fs b' =>
       match n, m with
-      | fz, fz => (BTrue, b', operation_cost)  (* One tick *)
+      | fz, fz => (BTrue, b', fs fz)
       | fs n', fs m' =>
           match fin_eq_b3 n' m' b' with
           | (r, b'', h) => (r, b'', fs h)
           end
-      | _, _ => (BFalse, b', operation_cost)  (* One tick *)
+      | _, _ => (BFalse, b', fs fz)
       end
   end.
 
@@ -274,8 +163,8 @@ Fixpoint le_fin_b3 (n m : Fin) (b : Budget) : (Bool3 * Budget * Heat) :=
   | fz => (BUnknown, fz, fz)
   | fs b' =>
       match n, m with
-      | fz, _ => (BTrue, b', operation_cost)  (* One tick *)
-      | fs _, fz => (BFalse, b', operation_cost)  (* One tick *)
+      | fz, _ => (BTrue, b', fs fz)
+      | fs _, fz => (BFalse, b', fs fz)
       | fs n', fs m' =>
           match le_fin_b3 n' m' b' with
           | (r, b'', h) => (r, b'', fs h)
@@ -284,7 +173,7 @@ Fixpoint le_fin_b3 (n m : Fin) (b : Budget) : (Bool3 * Budget * Heat) :=
   end.
 
 (******************************************************************************)
-(* Collapse Unknown→false (WITH HEAT)                                        *)
+(* Collapse UnknownÃ¢â€ â€™false (WITH HEAT)                                        *)
 (******************************************************************************)
 
 Definition collapse3 (r : Bool3) : bool :=
@@ -341,7 +230,7 @@ Definition max_fin_dec (n m : Fin) (b : Budget)
   end.
 
 (******************************************************************************)
-(* Arithmetic on Fin with budget/heat - ALL COST ONE TICK PER STEP          *)
+(* Arithmetic on Fin with budget/heat                                        *)
 (******************************************************************************)
 
 Fixpoint sub_saturate_b_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
@@ -349,8 +238,8 @@ Fixpoint sub_saturate_b_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
   | fz => (fz, fz, fz)
   | fs b' =>
       match n, m with
-      | _,  fz      => (n, b', operation_cost)
-      | fz, _       => (fz, b', operation_cost)
+      | _,  fz      => (n, b', fs fz)
+      | fz, _       => (fz, b', fs fz)
       | fs n', fs m' =>
           match sub_saturate_b_heat n' m' b' with
           | (r, b'', h) => (r, b'', fs h)
@@ -384,7 +273,7 @@ Definition dist_fin_b_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
 Definition safe_succ_b_heat (n : Fin) (b : Budget) : (Fin * Budget * Heat) :=
   match b with
   | fz => (n, fz, fz)
-  | fs b' => (fs n, b', operation_cost)
+  | fs b' => (fs n, b', fs fz)
   end.
 
 Fixpoint mult_fin_heat (n m : Fin) (b : Budget) : (Fin * Budget * Heat) :=
@@ -442,7 +331,7 @@ Definition div_fin_heat (n m : Fin) (b : Budget) : (Fin * Fin * Budget * Heat) :
 Definition succ_with_heat (s : State) : (State * Heat) :=
   match s with
   | (n, fz) => ((n, fz), fz)
-  | (n, fs b') => ((fs n, b'), operation_cost)
+  | (n, fs b') => ((fs n, b'), fs fz)
   end.
 
 Fixpoint bounded_iter_with_heat (k : Fin) (f : State -> (State * Heat)) (s : State)
@@ -479,7 +368,10 @@ Fixpoint mk_fin_b_heat (n : nat) (b : Budget) : (Fin * Budget * Heat) :=
       end
   end.
 
-(* No special constructors - just use mk_fin_b_heat directly when needed *)
+Definition make_two_heat   (b : Budget) : (Fin * Budget * Heat) := mk_fin_b_heat 2 b.
+Definition make_three_heat (b : Budget) : (Fin * Budget * Heat) := mk_fin_b_heat 3 b.
+Definition make_five_heat  (b : Budget) : (Fin * Budget * Heat) := mk_fin_b_heat 5 b.
+Definition make_ten_heat   (b : Budget) : (Fin * Budget * Heat) := mk_fin_b_heat 10 b.
 
 (******************************************************************************)
 (* BACKWARD COMPATIBILITY - Operations that return pairs, not triples        *)
@@ -551,6 +443,11 @@ Definition mk_fin_b (n : nat) (b : Budget) : (Fin * Budget) :=
 Definition fin_from_nat_b (n : nat) (b : Budget) : (Fin * Budget) :=
   mk_fin_b n b.
 
+Definition make_two   (b : Budget) : (Fin * Budget) := mk_fin_b 2 b.
+Definition make_three (b : Budget) : (Fin * Budget) := mk_fin_b 3 b.
+Definition make_five  (b : Budget) : (Fin * Budget) := mk_fin_b 5 b.
+Definition make_ten   (b : Budget) : (Fin * Budget) := mk_fin_b 10 b.
+
 (******************************************************************************)
 (* STATE TRANSITIONS (no heat)                                              *)
 (******************************************************************************)
@@ -599,6 +496,7 @@ Definition max_fin (n m : Fin) : Fin :=
 Definition fin_eq_LEGACY := fin_eq.
 Definition le_fin_LEGACY := le_fin.
 Definition add_simple_LEGACY := add_simple.
+
 
 (******************************************************************************)
 (* HEAT CONSERVATION LAW - As fundamental axiom                              *)

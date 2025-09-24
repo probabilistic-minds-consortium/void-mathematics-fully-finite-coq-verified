@@ -9,6 +9,8 @@ Require Import void_finite_minimal.
 
 Module Void_Arithmetic.
 
+(* Define operation_cost as one tick *)
+Definition operation_cost : Fin := fs fz.
 
 (******************************************************************************)
 (* ARITHMETIC WITH HEAT - Every step costs one tick                          *)
