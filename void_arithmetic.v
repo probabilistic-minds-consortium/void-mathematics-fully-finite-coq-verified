@@ -259,6 +259,117 @@ Axiom heat_conservation_div : forall n m b b' q r h,
   div_fin_heat n m b = (q, r, b', h) -> add_heat h b' = b.
 
 (******************************************************************************)
+(* PROBABILITY DIVISION MODULE                                               *)
+(******************************************************************************)
+
+Module Void_Probability_Division.
+
+(* Probability type - pairs of Fin *)
+Definition FinProb := (Fin * Fin)%type.
+Definition Resolution := Fin.
+
+(* Build 10 - needed for resolution denominators *)
+Definition ten : Fin := 
+  fs (fs (fs (fs (fs (fs (fs (fs (fs (fs fz))))))))).
+
+(* Build powers of 10 for resolution *)
+Fixpoint resolution_denominator_heat (ρ : Resolution) (b : Budget) 
+  : (Fin * Budget * Heat) :=
+  match ρ with
+  | fz => (fs fz, b, fz)  (* 10^0 = 1 *)
+  | fs ρ' =>
+      match b with
+      | fz => (fs fz, fz, fz)
+      | fs b' =>
+          match resolution_denominator_heat ρ' b' with
+          | (d_prev, b'', h1) =>
+              match mult_fin_heat d_prev ten b'' with
+              | (d_new, b''', h2) => (d_new, b''', add_heat h1 h2)
+              end
+          end
+      end
+  end.
+
+(* Probability division at given resolution *)
+Definition div_prob_heat (p1 p2 : FinProb) (ρ : Resolution) (b : Budget)
+  : (FinProb * Budget * Heat) :=
+  let (n1, d1) := p1 in
+  let (n2, d2) := p2 in
+  match n2 with
+  | fz => ((fz, fs fz), b, fz)  (* Division by zero -> 0/1 *)
+  | _ =>
+      match b with
+      | fz => ((fz, fs fz), fz, fz)
+      | _ =>
+          (* Get denominator for resolution *)
+          match resolution_denominator_heat ρ b with
+          | (D_rho, b1, h1) =>
+              (* Scale numerator: n1 * d2 * D(ρ) *)
+              match mult_fin_heat n1 d2 b1 with
+              | (temp1, b2, h2) =>
+                  match mult_fin_heat temp1 D_rho b2 with
+                  | (scaled_num, b3, h3) =>
+                      (* Denominator: d1 * n2 *)
+                      match mult_fin_heat d1 n2 b3 with
+                      | (scaled_den, b4, h4) =>
+                          (* Divide scaled_num / scaled_den *)
+                          match div_fin_heat scaled_num scaled_den b4 with
+                          | (quotient, remainder, b5, h5) =>
+                              (* Result is quotient/D(ρ) *)
+                              ((quotient, D_rho), b5,
+                               add_heat (add_heat (add_heat (add_heat h1 h2) h3) h4) h5)
+                          end
+                      end
+                  end
+              end
+          end
+      end
+  end.
+
+(* Version without heat tracking *)
+Definition div_prob (p1 p2 : FinProb) (ρ : Resolution) (b : Budget)
+  : (FinProb * Budget) :=
+  match div_prob_heat p1 p2 ρ b with
+  | (res, b', _) => (res, b')
+  end.
+
+(* Simple probability operations for completeness *)
+Definition prob_eq_b (p1 p2 : FinProb) (b : Budget) : (bool * Budget) :=
+  let (n1, d1) := p1 in
+  let (n2, d2) := p2 in
+  match mult_fin n1 d2 b with
+  | (v1, b1) =>
+      match mult_fin n2 d1 b1 with
+      | (v2, b2) => fin_eq_b v1 v2 b2
+      end
+  end.
+
+Definition prob_le_b (p1 p2 : FinProb) (b : Budget) : (bool * Budget) :=
+  let (n1, d1) := p1 in
+  let (n2, d2) := p2 in
+  match mult_fin n1 d2 b with
+  | (v1, b1) =>
+      match mult_fin n2 d1 b1 with
+      | (v2, b2) => le_fin_b v1 v2 b2
+      end
+  end.
+
+Definition prob_le_b3 (p1 p2 : FinProb) (b : Budget) : (Bool3 * Budget * Heat) :=
+  let (n1, d1) := p1 in
+  let (n2, d2) := p2 in
+  match mult_fin_heat n1 d2 b with
+  | (v1, b1, h1) =>
+      match mult_fin_heat n2 d1 b1 with
+      | (v2, b2, h2) =>
+          match le_fin_b3 v1 v2 b2 with
+          | (res, b3, h3) => (res, b3, add_heat (add_heat h1 h2) h3)
+          end
+      end
+  end.
+
+End Void_Probability_Division.
+
+(******************************************************************************)
 (* BASIC PROPERTIES                                                          *)
 (******************************************************************************)
 
