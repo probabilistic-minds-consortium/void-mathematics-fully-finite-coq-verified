@@ -1,4 +1,5 @@
-# **VOID Mathematics: The First Complete Mathematical System Without Infinity**
+# **VOID Theory: Mathematics Without Infinity**
+# **A Resource-Bounded Framework**
 
 > *"Infinity is a habit. This is the first system to break it."*
 
