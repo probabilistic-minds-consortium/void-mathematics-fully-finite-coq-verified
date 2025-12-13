@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOID - Finite Mind</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 600px;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            letter-spacing: 1rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 3rem;
+            letter-spacing: 0.3rem;
+        }
+        
+        .mind-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 0 auto 2rem;
+        }
+        
+        .mind {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #1a1a2e, #0a0a0f);
+            border: 2px solid #333;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.5s ease;
+        }
+        
+        .energy {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, 
+                rgba(102, 126, 234, 0.8) 0%, 
+                rgba(118, 75, 162, 0.6) 50%,
+                rgba(102, 126, 234, 0.4) 100%);
+            transition: height 0.1s ease;
+            border-radius: 0 0 150px 150px;
+        }
+        
+        .heat {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, 
+                rgba(255, 107, 107, 0.6) 0%, 
+                rgba(255, 107, 107, 0) 100%);
+            transition: height 0.1s ease;
+            border-radius: 150px 150px 0 0;
+        }
+        
+        .thought {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #fff;
+            border-radius: 50%;
+            opacity: 0;
+            animation: thought-float 0.6s ease-out forwards;
+        }
+        
+        @keyframes thought-float {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(0) translateY(-50px);
+            }
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 2rem;
+            font-size: 0.85rem;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-label {
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.1rem;
+            font-size: 0.7rem;
+        }
+        
+        .budget .stat-value { color: #667eea; }
+        .heat-stat .stat-value { color: #ff6b6b; }
+        .thoughts .stat-value { color: #a0a0a0; }
+        
+        .think-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 1rem 3rem;
+            font-size: 1rem;
+            letter-spacing: 0.2rem;
+            cursor: pointer;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-family: inherit;
+        }
+        
+        .think-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+        }
+        
+        .think-btn:disabled {
+            background: #333;
+            cursor: not-allowed;
+        }
+        
+        .message {
+            margin-top: 2rem;
+            min-height: 3rem;
+            font-size: 0.9rem;
+            color: #888;
+            font-style: italic;
+            transition: all 0.3s ease;
+        }
+        
+        .message.exhausted {
+            color: #ff6b6b;
+        }
+        
+        .message.unknown {
+            color: #ffd93d;
+        }
+        
+        .reset-btn {
+            background: transparent;
+            border: 1px solid #333;
+            color: #666;
+            padding: 0.5rem 1.5rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border-radius: 20px;
+            margin-top: 1rem;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        
+        .reset-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .philosophy {
+            position: fixed;
+            bottom: 2rem;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #444;
+            letter-spacing: 0.1rem;
+        }
+        
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: #667eea;
+            border-radius: 50%;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <div class="particles" id="particles"></div>
+    
+    <div class="container">
+        <h1>VOID</h1>
+        <div class="subtitle">finite mathematics of mind</div>
+        
+        <div class="mind-container">
+            <div class="mind">
+                <div class="energy" id="energy"></div>
+                <div class="heat" id="heat"></div>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat budget">
+                <div class="stat-value" id="budget-value">100</div>
+                <div class="stat-label">Budget</div>
+            </div>
+            <div class="stat heat-stat">
+                <div class="stat-value" id="heat-value">0</div>
+                <div class="stat-label">Heat</div>
+            </div>
+            <div class="stat thoughts">
+                <div class="stat-value" id="thoughts-value">0</div>
+                <div class="stat-label">Thoughts</div>
+            </div>
+        </div>
+        
+        <button class="think-btn" id="think-btn">Think</button>
+        
+        <div class="message" id="message">
+            Every thought costs. Every decision generates heat.
+        </div>
+        
+        <button class="reset-btn" id="reset-btn">Reset Mind</button>
+    </div>
+    
+    <div class="philosophy">
+        Care emerges from finitude. Infinity knows no love.
+    </div>
+    
+    <script>
+        const state = {
+            budget: 100,
+            heat: 0,
+            thoughts: 0,
+            maxBudget: 100
+        };
+        
+        const messages = [
+            "Processing distinctions...",
+            "Weighing possibilities...",
+            "Choosing carefully...",
+            "This matters...",
+            "Allocating attention...",
+            "Considering consequences...",
+            "Feeling the cost...",
+            "Making it count..."
+        ];
+        
+        const lowBudgetMessages = [
+            "Running low... must choose wisely",
+            "Each thought precious now",
+            "Nearing the boundary...",
+            "Conservation mode...",
+            "What truly matters?"
+        ];
+        
+        const exhaustedMessages = [
+            "Unknown. Budget exhausted.",
+            "I cannot proceed. Honesty over hallucination.",
+            "The boundary has been reached.",
+            "No more distinctions possible."
+        ];
+        
+        function updateDisplay() {
+            document.getElementById('budget-value').textContent = state.budget;
+            document.getElementById('heat-value').textContent = state.heat;
+            document.getElementById('thoughts-value').textContent = state.thoughts;
+            
+            const energyPercent = (state.budget / state.maxBudget) * 100;
+            document.getElementById('energy').style.height = energyPercent + '%';
+            
+            const heatPercent = Math.min((state.heat / state.maxBudget) * 100, 100);
+            document.getElementById('heat').style.height = heatPercent + '%';
+            
+            if (state.budget <= 0) {
+                document.getElementById('think-btn').disabled = true;
+            }
+        }
+        
+        function createThoughtParticle() {
+            const mind = document.querySelector('.mind');
+            const particle = document.createElement('div');
+            particle.className = 'thought';
+            particle.style.left = (Math.random() * 80 + 10) + '%';
+            particle.style.top = (Math.random() * 80 + 10) + '%';
+            mind.appendChild(particle);
+            
+            setTimeout(() => particle.remove(), 600);
+        }
+        
+        function think() {
+            if (state.budget <= 0) return;
+            
+            const cost = Math.floor(Math.random() * 8) + 3; // 3-10 cost per thought
+            state.budget = Math.max(0, state.budget - cost);
+            state.heat += cost;
+            state.thoughts++;
+            
+            createThoughtParticle();
+            createThoughtParticle();
+            createThoughtParticle();
+            
+            const msgEl = document.getElementById('message');
+            
+            if (state.budget <= 0) {
+                msgEl.textContent = exhaustedMessages[Math.floor(Math.random() * exhaustedMessages.length)];
+                msgEl.className = 'message exhausted';
+            } else if (state.budget < 20) {
+                msgEl.textContent = lowBudgetMessages[Math.floor(Math.random() * lowBudgetMessages.length)];
+                msgEl.className = 'message unknown';
+            } else {
+                msgEl.textContent = messages[Math.floor(Math.random() * messages.length)];
+                msgEl.className = 'message';
+            }
+            
+            updateDisplay();
+        }
+        
+        function reset() {
+            state.budget = 100;
+            state.heat = 0;
+            state.thoughts = 0;
+            
+            document.getElementById('think-btn').disabled = false;
+            document.getElementById('message').textContent = 'Every thought costs. Every decision generates heat.';
+            document.getElementById('message').className = 'message';
+            
+            updateDisplay();
+        }
+        
+        // Create background particles
+        function createBackgroundParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 5 + 's';
+                container.appendChild(particle);
+            }
+        }
+        
+        document.getElementById('think-btn').addEventListener('click', think);
+        document.getElementById('reset-btn').addEventListener('click', reset);
+        
+        createBackgroundParticles();
+        updateDisplay();
+    </script>
+</body>
+</html>
