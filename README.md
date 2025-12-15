@@ -3,7 +3,7 @@
 
 > *"Infinity is a habit. This is the first system to break it."*
 >
-> "I fully endorse your effort." — Doron Zeilberger
+> *"That's very interesting! An actual implementation of finitary math."* — Doron Zeilberger
 
 ## **The Unprecedented Achievement**
 
