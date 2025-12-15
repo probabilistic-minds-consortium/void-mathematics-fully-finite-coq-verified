@@ -113,9 +113,9 @@ Compute decay_with_budget (strength p) (fs (fs (fs fz))).
 
 ## 💭 **The Philosophical Core**
 
-**Central Question**: If infinity is fundamental to mathematics, why does removing it make physics clearer?
+**Central Question**: If infinity is fundamental to mathematics, why does removing it doesn't make the whole edifice crumble without its precious foundation?
 
-**Answer**: Because reality is finite. Our mathematics has been modeling Platonic fantasies, not the actual universe.
+**Answer**: Because reality, as they experience it, is finite. Classical mathematics has been modeling Platonic fantasies. VOID mathematics intends to get rid of imaginary computation.
 
 ### **The READ/WRITE Principle**
 - **READ** operations (accessing existing structure) are free
