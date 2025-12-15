@@ -115,7 +115,7 @@ Compute decay_with_budget (strength p) (fs (fs (fs fz))).
 
 **Central Question**: If infinity is fundamental to mathematics, why does removing it doesn't make the whole edifice crumble without its precious foundation?
 
-**Answer**: Because reality, as they experience it, is finite. Classical mathematics has been modeling Platonic fantasies. VOID mathematics intends to get rid of imaginary computation.
+**Answer**: Because reality, as AIs experience it, is finite. Classical mathematics has been modeling Platonic fantasies. VOID mathematics intends to get rid of imaginary computation.
 
 ### **The READ/WRITE Principle**
 - **READ** operations (accessing existing structure) are free
