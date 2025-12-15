@@ -2,6 +2,8 @@
 # **A Resource-Bounded Framework**
 
 > *"Infinity is a habit. This is the first system to break it."*
+>
+> "I fully endorse your effort." — Doron Zeilberger
 
 ## **The Unprecedented Achievement**
 
