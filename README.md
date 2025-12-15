@@ -175,12 +175,6 @@ MIT License - Use freely, but remember: everything costs.
 
 ---
 
-<p align="center">
-  <img src="https://cdn.midjourney.com/b015e1db-fd68-42d8-82b0-fc217119ce10/0_1.jpeg" alt="VOID Thermodynamic Architecture" width="100%" style="border-radius: 8px;">
-</p>
-
----
-
 **"In the beginning was the Fin, and the Fin was with Void, and the Fin was Void."**
 
 *Probabilistic Mind Consortium, 2025*  
