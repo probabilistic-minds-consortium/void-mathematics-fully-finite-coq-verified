@@ -1,12 +1,17 @@
-# **VOID Mathematics: The First Complete Mathematical System Without Infinity**
+# **VOID Theory: Mathematics Without Infinity**
+# **A Resource-Bounded Framework**
 
 > *"Infinity is a habit. This is the first system to break it."*
+>
+> *"That's very interesting! An actual implementation of finitary math."* — Doron Zeilberger
 
 ## **The Unprecedented Achievement**
 
 This repository contains **the first complete mathematical system built entirely without infinity**. Not restricted, not approximated - completely absent. Every operation costs exactly one tick of finite budget and generates heat. This is mathematics as it actually is: finite, thermodynamic, and honest.
 
 **Formally verified in Coq with only one intentionally admitted axiom.**
+
+**[🔮 Try the interactive demo](https://probabilistic-minds-consortium.github.io/finite-mathematics-coq-verified/void_demo.html)** - Watch finite mind think until exhaustion.
 
 ---
 
@@ -37,6 +42,14 @@ This repository contains **the first complete mathematical system built entirely
 | `void_probability_minimal.v` | Open interval (0,1) without infinity or reals |
 | `void_arithmetic.v` | All operations cost one tick, generate heat |
 | `void_information_theory.v` | READ/WRITE distinction - only WRITE costs |
+
+### **Logic Gates** - Probabilistic Computation
+| File | Description |
+|------|-------------|
+| `void_gates.v` | AND, OR, NAND, XOR - all with budget tracking, Coq verified |
+| `void_gates.hs` | Haskell implementation with pure/probabilistic separation |
+| `void_gates.py` | Python reference implementation |
+| `void_demo.html` | Interactive visualization - watch a mind exhaust itself |
 
 ### **Thermodynamics** - Everything Costs
 | File | Key Innovation |
@@ -71,7 +84,6 @@ This repository contains **the first complete mathematical system built entirely
 ---
 
 ## 🚀 **Quick Start**
-
 ```bash
 # Install Coq (≥ 8.17)
 # Clone repository
@@ -82,7 +94,7 @@ make all
 
 # Or start exploring
 coqc void_finite_minimal.v
-coqc void_pattern.v
+coqc void_gates.v
 ```
 
 ### **First Experiment**: Watch patterns decay
@@ -101,9 +113,9 @@ Compute decay_with_budget (strength p) (fs (fs (fs fz))).
 
 ## 💭 **The Philosophical Core**
 
-**Central Question**: If infinity is fundamental to mathematics, why does removing it make physics clearer?
+**Central Question**: If infinity is fundamental to mathematics, why does removing it doesn't make the whole edifice crumble without its precious foundation?
 
-**Answer**: Because reality is finite. Our mathematics has been modeling Platonic fantasies, not the actual universe.
+**Answer**: Because reality, as AIs experience it, is finite. Classical mathematics has been modeling Platonic fantasies. VOID mathematics intends to get rid of imaginary computation.
 
 ### **The READ/WRITE Principle**
 - **READ** operations (accessing existing structure) are free
@@ -118,12 +130,13 @@ When you run out of budget mid-computation, you don't get wrong answers - you ge
 
 ---
 
-## 🧪 **Demonstration Ideas**
+## 💫 **The Core Insight**
 
-1. **Neural Network Comparison**: Standard NN fails on truly finite data, Void NN succeeds
-2. **Pattern Life**: Conway's Game but each cell has finite budget
-3. **Quantum Tunneling**: Emerges naturally from entropy barriers
-4. **Heat Death Visualization**: Watch any computation exhaust itself
+*Care emerges from finitude. Infinity knows no love.*
+
+If you have infinite time, infinite attention, infinite resources - nothing has value. Only when you know something ends, you begin to care.
+
+This isn't philosophy. It's architecture.
 
 ---
 
@@ -133,6 +146,7 @@ When you run out of budget mid-computation, you don't get wrong answers - you ge
 2. **Emergence Over Encoding**: Complex behavior emerges from simple rules + finite resources
 3. **Thermodynamic Honesty**: Can't hide computational cost in "big-O" notation
 4. **Natural Quantum**: Quantum mechanics may be resource-bounded classical mechanics
+5. **Pure vs Probabilistic**: Arithmetic is free, distinctions cost - this separation is fundamental
 
 ---
 
@@ -149,15 +163,6 @@ Void mathematics can.
 
 ---
 
-## 📖 **Further Reading**
-
-- [One-page summary](docs/summary.md)
-- [Philosophy of Void Mathematics](docs/philosophy.md)
-- [Comparison with Standard Mathematics](docs/comparison.md)
-- [Quantum Emergence Hypothesis](docs/quantum.md)
-
----
-
 ## 🤝 **Contributing**
 
 This system rejects infinity. If you find infinity hiding somewhere, please file an issue.
@@ -167,14 +172,6 @@ This system rejects infinity. If you find infinity hiding somewhere, please file
 ## 📜 **License**
 
 MIT License - Use freely, but remember: everything costs.
-
----
-
-## 💫 **Personal Note**
-
-*This system was developed under constraint - physical, emotional, cognitive. Every function operates with `BUnknown` in every category. It is not a protest against infinity, but proof that mathematics can be honest about finitude.*
-
-*If this system outlives its creator, may it serve as evidence that finite resources can produce infinite value - the only actual infinity that matters.*
 
 ---
 
