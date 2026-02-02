@@ -5,6 +5,54 @@
 >
 > *"That's very interesting! An actual implementation of finitary math."* — Doron Zeilberger
 
+---
+
+## 🧠 **NEW: VOID Neural Network — Working Implementation**
+
+**A pattern-matching neural network with zero IEEE 754 floats.**
+
+| File | Description |
+|------|-------------|
+| `void_network_v4/src/main.rs` | 550 lines of Rust — complete implementation |
+| `void_network_v4/disease_symptoms_sample.csv` | 1,179 diseases × 377 symptoms |
+| `void_network_v4/void_architecture.svg` | Architecture diagram |
+
+### **What Makes It Different**
+
+- **No floating-point** — Confidence is `Ratio(5,8)`, not `0.625`. All comparisons via cross-multiplication.
+- **Says "I don't know"** — When no pattern exceeds threshold, returns `DontKnow` instead of hallucinating.
+- **Budget = mortality** — Every operation costs. Network dies before seeing everything.
+- **Entropy-weighted** — Rare symptoms carry more information than common ones.
+- **Runs on CPU** — Fast as hell. No GPU needed.
+
+### **Results (Medical Diagnosis)**
+
+```
+5/10 correct
+2/10 wrong (but medically related: spondylosis→disc disease, pyelonephritis→kidney stone)
+3/10 honest "I don't know" (including ADHD — network refuses to diagnose it)
+```
+
+### **Quick Run**
+
+```bash
+cd void_network_v4
+cargo run --release
+```
+
+### **Architecture**
+
+```
+TRANSDUCTION → WORKING MEMORY (7 orbits) → MEMORY BANK (200 patterns) → ECONOMY
+     ↓                ↓                           ↓                        ↓
+  cost: 1         CHEAP PATH                EXPENSIVE PATH            promote/demote
+                  (recent hits)             (entropy-weighted)        (cost: 10)
+                                                   ↓
+                                    OUTPUT: Match | DontKnow | Exhausted
+```
+
+---
+
 ## **The Unprecedented Achievement**
 
 This repository contains **the first complete mathematical system built entirely without infinity**. Not restricted, not approximated - completely absent. Every operation costs exactly one tick of finite budget and generates heat. This is mathematics as it actually is: finite, thermodynamic, and honest.
@@ -84,12 +132,16 @@ This repository contains **the first complete mathematical system built entirely
 ---
 
 ## 🚀 **Quick Start**
+
+### **Neural Network (Rust)**
+```bash
+cd void_network_v4
+cargo run --release
+```
+
+### **Formal Proofs (Coq)**
 ```bash
 # Install Coq (≥ 8.17)
-# Clone repository
-git clone [repository]
-
-# Compile everything
 make all
 
 # Or start exploring
