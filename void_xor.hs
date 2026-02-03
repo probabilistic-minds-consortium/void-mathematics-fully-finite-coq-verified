@@ -247,7 +247,7 @@ main = do
     putStrLn $ "Initial: " ++ showNet initNet
     putStrLn ""
     
-    let budget = fin1000
+    let budget = fin10000
     let epochs = fin50
     let world = World budget Fz
     
@@ -279,3 +279,13 @@ testNet net examples = mapM_ test examples
                            boundary_finProbToStr b ++ " = " ++ 
                            boundary_finProbToStr out ++ 
                            " (target: " ++ boundary_finProbToStr target ++ ") " ++ mark
+
+trainLoop :: Fin -> Network -> [(FinProb, FinProb, FinProb)] -> Fin -> Void (Network, Fin, Fin)
+trainLoop Fz net _ epochsDone = pure (net, Fz, epochsDone)
+trainLoop (Fs epochs) net examples epochsDone = do
+    tick
+    net' <- scanEpoch net examples
+    correct <- countCorrect net' examples
+    case correct of
+        Fs (Fs (Fs (Fs Fz))) -> pure (net', correct, epochsDone)
+        _ -> trainLoop epochs net' examples (Fs epochsDone)
