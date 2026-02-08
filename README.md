@@ -186,7 +186,7 @@ VOID finds the boundary.
 
 ## Author
 
-**Gustaw Konrad Wojnowski** — cultural theorist, theater scholar, University of Silesia.
+**Gustaw Konrad Wojnowski** — media scholar and performativity theorist, Jagiellonian University. Author of Probabilistic Aesthetics (Edinburgh University Press, 2024), Productive Catastrophes (2016), and Aesthetics of Disturbance (2012).
 
 Not a mathematician. Not a programmer.
 Built this because infinity is a bug, not a feature.
