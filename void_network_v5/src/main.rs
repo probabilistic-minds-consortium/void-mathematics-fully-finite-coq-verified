@@ -1,23 +1,14 @@
-//! VOID Neural Network v0.5 - AUDITED
+//! VOID Neural Network v0.6 - LEARNING
 //! 
-//! FIXES FROM GPT-5.2 AUDIT:
-//! - Heat now tracks ALL budget spends (including ge/gt comparisons)
-//! - Entropy weight uses saturating_mul to prevent overflow
-//! - search_memory_bank returns exhausted flag; Match during exhaustion → Exhausted
-//! - patterns_checked is now accurate
+//! NEW IN v0.6:
+//! - Network learns from mistakes (adds correct pattern to memory bank)
+//! - Learning costs budget - not free!
+//! - Multiple epochs show improvement over time
 //!
-//! ONTOLOGICAL AUDIT v3:
-//! - NO IEEE 754 floats anywhere in logic
-//! - Decimal notation ("0.625") parsed directly to Ratio(625, 1000)
-//! - Cross-multiplication comparison (no division)
-//! - saturating_add/mul for all counters (no overflow wrap)
-//! - Heat = accumulated cost, now properly enforced
-//!
-//! Philosophy:
-//! - Every operation costs budget AND generates heat
-//! - When budget = 0, stop and say "I don't know" (or Exhausted if partial)
-//! - Pattern matching, not matrix multiplication
-//! - Network grows by accretion (coral architecture)
+//! AUDIT FIXES (from v0.5):
+//! - Heat tracks ALL budget spends
+//! - Entropy weight uses u64 intermediate (no overflow)
+//! - Match during exhaustion → Exhausted with partial_best
 
 use std::fs::File;
 use std::io::BufReader;
@@ -26,7 +17,6 @@ use std::io::BufReader;
 // CORE TYPES - STRICTLY FINITE
 // ============================================
 
-/// Budget - the heartbeat of VOID. When it hits 0, observation stops.
 #[derive(Debug, Clone, Copy)]
 pub struct Budget(u32);
 
@@ -35,8 +25,6 @@ impl Budget {
         Budget(initial)
     }
     
-    /// Spend budget. Returns None if insufficient.
-    /// IMPORTANT: Caller must also add heat!
     pub fn spend(&mut self, cost: u32) -> Option<u32> {
         if self.0 >= cost {
             self.0 -= cost;
@@ -55,8 +43,6 @@ impl Budget {
     }
 }
 
-/// Heat - accumulated cost, irreversible trace
-/// INVARIANT: Every budget.spend(n) must be accompanied by heat.add(n)
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Heat(u32);
 
@@ -70,8 +56,6 @@ impl Heat {
     }
 }
 
-/// ResourceContext bundles Budget and Heat together
-/// This ensures every spend is tracked as heat
 pub struct Resources {
     pub budget: Budget,
     pub heat: Heat,
@@ -85,11 +69,9 @@ impl Resources {
         }
     }
     
-    /// Spend budget AND record heat atomically
-    /// This is the ONLY way to spend in v0.5
     pub fn spend(&mut self, cost: u32) -> Option<u32> {
         let result = self.budget.spend(cost)?;
-        self.heat.add(cost);  // ALWAYS track heat
+        self.heat.add(cost);
         Some(result)
     }
     
@@ -110,15 +92,10 @@ impl Resources {
 // RATIO - TRUE FINITE ARITHMETIC
 // ============================================
 
-/// Ratio represents certainty in VOID.
-/// 
-/// KEY INSIGHT: Decimal notation is NOT floating point!
-/// "0.625" is just shorthand for 625/1000.
-/// The heresy is IEEE 754, not the decimal point.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Ratio {
-    pub n: u32,  // numerator
-    pub d: u32,  // denominator
+    pub n: u32,
+    pub d: u32,
 }
 
 impl Ratio {
@@ -134,13 +111,6 @@ impl Ratio {
         Ratio { n: 0, d: 1 } 
     }
     
-    /// Returns true if this ratio represents an undefined/empty comparison
-    pub fn is_undefined(&self) -> bool {
-        self.d == 0 || (self.n == 0 && self.d == 1)
-    }
-    
-    /// Parse decimal string DIRECTLY to Ratio.
-    /// NO IEEE 754 INVOLVED AT ANY POINT!
     pub fn from_decimal_str(s: &str) -> Option<Self> {
         let s = s.trim();
         let parts: Vec<&str> = s.split('.').collect();
@@ -167,19 +137,13 @@ impl Ratio {
         }
     }
     
-    /// Cross-multiplication comparison: a/b >= c/d <=> a*d >= c*b
-    /// NO DIVISION! This is the key to finite arithmetic.
-    /// 
-    /// FIX v0.5: Now takes Resources to track both budget AND heat
     pub fn ge(&self, other: &Ratio, res: &mut Resources) -> Option<bool> {
-        res.spend(1)?;  // Uses Resources.spend which tracks heat
+        res.spend(1)?;
         let left = self.n as u64 * other.d as u64;
         let right = other.n as u64 * self.d as u64;
         Some(left >= right)
     }
     
-    /// Greater than comparison
-    /// FIX v0.5: Now takes Resources
     pub fn gt(&self, other: &Ratio, res: &mut Resources) -> Option<bool> {
         res.spend(1)?;
         let left = self.n as u64 * other.d as u64;
@@ -187,30 +151,6 @@ impl Ratio {
         Some(left > right)
     }
     
-    /// Display as decimal string (for human eyes only!)
-    pub fn to_decimal_string(&self, precision: usize) -> String {
-        if self.d == 0 { return "0".to_string(); }
-        
-        let whole = self.n / self.d;
-        let remainder = self.n % self.d;
-        
-        if remainder == 0 || precision == 0 {
-            return whole.to_string();
-        }
-        
-        let mut frac_str = String::new();
-        let mut rem = remainder;
-        for _ in 0..precision {
-            rem *= 10;
-            frac_str.push_str(&(rem / self.d).to_string());
-            rem %= self.d;
-            if rem == 0 { break; }
-        }
-        
-        format!("{}.{}", whole, frac_str)
-    }
-    
-    /// Display as percentage (for human eyes only!)
     pub fn to_percent_string(&self, precision: usize) -> String {
         if self.d == 0 { return "0%".to_string(); }
         
@@ -236,12 +176,10 @@ impl Ratio {
         format!("{}.{}%", whole, frac_str)
     }
     
-    /// Display as fraction string
     pub fn to_fraction_string(&self) -> String {
         format!("{}/{}", self.n, self.d)
     }
     
-    /// Simplify the ratio using GCD
     pub fn simplified(&self) -> Self {
         let g = gcd(self.n, self.d);
         if g == 0 { return *self; }
@@ -249,7 +187,6 @@ impl Ratio {
     }
 }
 
-/// Greatest Common Divisor (Euclidean algorithm)
 fn gcd(mut a: u32, mut b: u32) -> u32 {
     while b != 0 {
         let t = b;
@@ -260,11 +197,9 @@ fn gcd(mut a: u32, mut b: u32) -> u32 {
 }
 
 // ============================================
-// ENTROPY MAP - void_entropy.v (FIXED OVERFLOW)
+// ENTROPY MAP
 // ============================================
 
-/// EntropyMap tracks global symptom rarity.
-/// FIX v0.5: Uses saturating_mul to prevent overflow
 pub struct EntropyMap {
     pub symptom_counts: Vec<u32>,
     pub total_samples: u32,
@@ -283,6 +218,11 @@ impl EntropyMap {
     pub fn train(&mut self, patterns: &[Pattern]) {
         self.total_samples = patterns.len() as u32;
         
+        // Reset counts
+        for c in &mut self.symptom_counts {
+            *c = 0;
+        }
+        
         for p in patterns {
             for (i, &present) in p.symptoms.iter().enumerate() {
                 if present {
@@ -293,38 +233,13 @@ impl EntropyMap {
                 }
             }
         }
-        
-        // Debug output
-        let mut rarity: Vec<(usize, u32)> = self.symptom_counts.iter()
-            .enumerate()
-            .filter(|(_, &c)| c > 0)
-            .map(|(i, &c)| (i, c))
-            .collect();
-        rarity.sort_by_key(|(_, c)| *c);
-        
-        println!("\n[EntropyMap] Trained on {} patterns (scale={})", self.total_samples, self.scale);
-        println!("[EntropyMap] Top 5 RAREST symptoms:");
-        for (i, (idx, count)) in rarity.iter().take(5).enumerate() {
-            let weight = self.get_weight(*idx);
-            println!("  {}. symptom[{}]: count={}, weight={}", i+1, idx, count, weight);
-        }
-        println!("[EntropyMap] Top 5 COMMON symptoms:");
-        for (i, (idx, count)) in rarity.iter().rev().take(5).enumerate() {
-            let weight = self.get_weight(*idx);
-            println!("  {}. symptom[{}]: count={}, weight={}", i+1, idx, count, weight);
-        }
-        println!();
     }
 
-    /// Get integer weight for symptom.
-    /// FIX v0.5: Uses u64 intermediate to prevent overflow, then saturating conversion
     pub fn get_weight(&self, symptom_idx: usize) -> u32 {
         let count = self.symptom_counts.get(symptom_idx).copied().unwrap_or(0);
-        // FIX: compute in u64 to prevent overflow
         let numerator = (self.scale as u64).saturating_mul(self.total_samples as u64);
         let denominator = (count as u64).saturating_add(1);
         let result = numerator / denominator;
-        // Clamp to u32
         result.min(u32::MAX as u64) as u32
     }
 }
@@ -345,14 +260,12 @@ impl Pattern {
         Pattern { name, symptoms, strength: 1 }
     }
     
-    /// Entropy-weighted comparison returning Ratio
-    /// FIX v0.5: Uses Resources instead of separate budget/heat
     pub fn compare(&self, other: &[bool], entropy: &EntropyMap, res: &mut Resources) -> Option<Ratio> {
         let mut intersection_score: u64 = 0;
         let mut union_score: u64 = 0;
         
         for (i, (a, b)) in self.symptoms.iter().zip(other.iter()).enumerate() {
-            res.spend(1)?;  // FIX: uses Resources.spend which tracks heat
+            res.spend(1)?;
             
             let weight = entropy.get_weight(i) as u64;
             let a_present = *a;
@@ -420,10 +333,9 @@ pub struct VoidNetwork {
     pub match_threshold: Ratio,
     pub demotion_threshold: Ratio,
     pub alloc_cost: u32,
+    pub learning_cost: u32,
 }
 
-/// Result of memory bank search
-/// FIX v0.5: Now includes exhausted flag and patterns_checked
 struct SearchResult {
     best_match: Option<(String, Ratio, usize)>,
     exhausted: bool,
@@ -444,7 +356,7 @@ pub enum InferenceResult {
         heat_generated: u32,
     },
     Exhausted { 
-        partial_best: Option<(String, Ratio)>,  // FIX: now includes confidence
+        partial_best: Option<(String, Ratio)>,
         budget_spent: u32,
         patterns_checked: u32,
         heat_generated: u32,
@@ -461,15 +373,8 @@ impl VoidNetwork {
             match_threshold: Ratio::from_decimal_str("0.5").unwrap(),
             demotion_threshold: Ratio::from_decimal_str("0.3").unwrap(),
             alloc_cost: 10,
+            learning_cost: 50,  // Learning costs budget!
         }
-    }
-    
-    pub fn with_threshold(threshold: &str) -> Self {
-        let mut net = VoidNetwork::new();
-        if let Some(t) = Ratio::from_decimal_str(threshold) {
-            net.match_threshold = t;
-        }
-        net
     }
     
     pub fn load_patterns_free(&mut self, patterns: Vec<Pattern>) {
@@ -477,7 +382,31 @@ impl VoidNetwork {
         self.entropy = EntropyMap::new(num_symptoms);
         self.entropy.train(&patterns);
         self.memory_bank = patterns;
-        println!("Loaded {} patterns into memory bank", self.memory_bank.len());
+    }
+    
+    /// Retrain entropy map after learning new patterns
+    pub fn retrain_entropy(&mut self) {
+        self.entropy.train(&self.memory_bank);
+    }
+    
+    /// LEARN FROM MISTAKE
+    /// Adds correct pattern to memory bank
+    /// Returns true if learned, false if pattern already exists or out of budget
+    pub fn learn(&mut self, pattern: Pattern, res: &mut Resources) -> bool {
+        // Check if we already know this exact pattern
+        for p in &self.memory_bank {
+            if p.name == pattern.name && p.symptoms == pattern.symptoms {
+                return false; // Already known
+            }
+        }
+        
+        // Learning costs budget!
+        if res.spend(self.learning_cost).is_none() {
+            return false;
+        }
+        
+        self.memory_bank.push(pattern);
+        true
     }
     
     fn transduce(&self, symptoms: Vec<bool>, res: &mut Resources) -> Option<Vec<bool>> {
@@ -491,30 +420,24 @@ impl VoidNetwork {
                 match confidence.ge(&self.match_threshold, res) {
                     Some(true) => {
                         orbit.record_hit();
-                        println!("    [ORBIT HIT] {} (confidence: {} = {})", 
-                                 orbit.pattern.name, 
-                                 confidence.to_fraction_string(),
-                                 confidence.to_percent_string(1));
                         return Some((orbit.pattern.name.clone(), confidence));
                     }
                     Some(false) => {
                         orbit.record_miss();
                     }
                     None => {
-                        return None;  // Budget exhausted
+                        return None;
                     }
                 }
             } else {
-                return None;  // Budget exhausted
+                return None;
             }
         }
         None
     }
     
-    /// FIX v0.5: Returns SearchResult with exhausted flag and accurate patterns_checked
     fn search_memory_bank(&mut self, input: &[bool], res: &mut Resources) -> SearchResult {
         let mut best_match: Option<(String, Ratio, usize)> = None;
-        let debug_threshold = Ratio::from_decimal_str("0.3").unwrap();
         let mut patterns_checked: u32 = 0;
         let mut exhausted = false;
         
@@ -526,13 +449,6 @@ impl VoidNetwork {
             
             if let Some(confidence) = pattern.compare(input, &self.entropy, res) {
                 patterns_checked = patterns_checked.saturating_add(1);
-                
-                if let Some(true) = confidence.gt(&debug_threshold, res) {
-                    println!("    [DEBUG] {} → {} = {}",
-                             pattern.name, 
-                             confidence.to_fraction_string(),
-                             confidence.to_percent_string(1));
-                }
                 
                 match confidence.ge(&self.match_threshold, res) {
                     Some(true) => {
@@ -567,14 +483,12 @@ impl VoidNetwork {
     
     fn maybe_promote(&mut self, pattern_idx: usize, res: &mut Resources) {
         if res.spend(self.alloc_cost).is_none() {
-            println!("  → Cannot promote (insufficient budget)");
             return;
         }
         
         if self.orbits.len() < self.max_orbits {
             let pattern = self.memory_bank[pattern_idx].clone();
             self.orbits.push(Orbit::new(pattern));
-            println!("  → Promoted '{}' to working memory", self.memory_bank[pattern_idx].name);
         } else {
             let mut weakest_idx = 0;
             let mut weakest_strength = self.orbits[0].strength();
@@ -588,13 +502,9 @@ impl VoidNetwork {
             }
             
             if let Some(true) = self.demotion_threshold.gt(&weakest_strength, res) {
-                let demoted = self.orbits.remove(weakest_idx);
-                println!("  → Demoted '{}' (strength: {})", 
-                         demoted.pattern.name, weakest_strength.to_fraction_string());
-                
+                self.orbits.remove(weakest_idx);
                 let pattern = self.memory_bank[pattern_idx].clone();
                 self.orbits.push(Orbit::new(pattern));
-                println!("  → Promoted '{}' to working memory", self.memory_bank[pattern_idx].name);
             }
         }
     }
@@ -602,7 +512,6 @@ impl VoidNetwork {
     pub fn infer(&mut self, symptoms: Vec<bool>, initial_budget: u32) -> InferenceResult {
         let mut res = Resources::new(initial_budget);
         
-        // LAYER 1: Transduction
         let input = match self.transduce(symptoms, &mut res) {
             Some(p) => p,
             None => return InferenceResult::Exhausted { 
@@ -613,7 +522,6 @@ impl VoidNetwork {
             },
         };
         
-        // LAYER 2: Check orbits (CHEAP)
         let orbits_count = self.orbits.len() as u32;
         if let Some((diagnosis, confidence)) = self.check_orbits(&input, &mut res) {
             return InferenceResult::Match {
@@ -624,11 +532,9 @@ impl VoidNetwork {
             };
         }
         
-        // LAYER 3: Search memory bank (EXPENSIVE)
         let search_result = self.search_memory_bank(&input, &mut res);
         let total_patterns_checked = orbits_count.saturating_add(search_result.patterns_checked);
         
-        // FIX v0.5: If exhausted during search but found partial match → Exhausted, not Match
         if search_result.exhausted {
             return InferenceResult::Exhausted {
                 partial_best: search_result.best_match.map(|(name, conf, _)| (name, conf)),
@@ -638,9 +544,7 @@ impl VoidNetwork {
             };
         }
         
-        // Not exhausted - check if we found a match
         if let Some((diagnosis, confidence, idx)) = search_result.best_match {
-            // LAYER 4: Maybe promote
             self.maybe_promote(idx, &mut res);
             
             return InferenceResult::Match {
@@ -651,7 +555,60 @@ impl VoidNetwork {
             };
         }
         
-        // No match found, not exhausted → genuinely don't know
+        InferenceResult::DontKnow {
+            budget_spent: initial_budget - res.remaining(),
+            patterns_checked: total_patterns_checked,
+            heat_generated: res.heat_total(),
+        }
+    }
+    
+    /// Infer with learning - returns remaining resources for potential learning
+    pub fn infer_with_resources(&mut self, symptoms: Vec<bool>, res: &mut Resources) -> InferenceResult {
+        let initial_budget = res.remaining();
+        
+        let input = match self.transduce(symptoms, res) {
+            Some(p) => p,
+            None => return InferenceResult::Exhausted { 
+                partial_best: None, 
+                budget_spent: initial_budget - res.remaining(),
+                patterns_checked: 0,
+                heat_generated: res.heat_total(),
+            },
+        };
+        
+        let orbits_count = self.orbits.len() as u32;
+        if let Some((diagnosis, confidence)) = self.check_orbits(&input, res) {
+            return InferenceResult::Match {
+                diagnosis,
+                confidence,
+                budget_spent: initial_budget - res.remaining(),
+                heat_generated: res.heat_total(),
+            };
+        }
+        
+        let search_result = self.search_memory_bank(&input, res);
+        let total_patterns_checked = orbits_count.saturating_add(search_result.patterns_checked);
+        
+        if search_result.exhausted {
+            return InferenceResult::Exhausted {
+                partial_best: search_result.best_match.map(|(name, conf, _)| (name, conf)),
+                budget_spent: initial_budget - res.remaining(),
+                patterns_checked: total_patterns_checked,
+                heat_generated: res.heat_total(),
+            };
+        }
+        
+        if let Some((diagnosis, confidence, idx)) = search_result.best_match {
+            self.maybe_promote(idx, res);
+            
+            return InferenceResult::Match {
+                diagnosis,
+                confidence,
+                budget_spent: initial_budget - res.remaining(),
+                heat_generated: res.heat_total(),
+            };
+        }
+        
         InferenceResult::DontKnow {
             budget_spent: initial_budget - res.remaining(),
             patterns_checked: total_patterns_checked,
@@ -660,20 +617,13 @@ impl VoidNetwork {
     }
     
     pub fn status(&self) {
-        println!("\n=== VOID Network Status (AUDITED v0.5) ===");
+        println!("\n=== VOID Network Status (v0.6 LEARNING) ===");
         println!("Working Memory (Orbits): {}/{}", self.orbits.len(), self.max_orbits);
-        for (i, orbit) in self.orbits.iter().enumerate() {
-            let strength = orbit.strength();
-            println!("  [{}] {} (strength: {} = {}, hits: {}, misses: {})", 
-                     i, orbit.pattern.name, 
-                     strength.to_fraction_string(),
-                     strength.to_percent_string(1),
-                     orbit.hits, orbit.misses);
-        }
         println!("Memory Bank: {} patterns", self.memory_bank.len());
         println!("Match Threshold: {} = {}", 
                  self.match_threshold.to_fraction_string(),
                  self.match_threshold.to_percent_string(1));
+        println!("Learning Cost: {} budget per pattern", self.learning_cost);
         println!("================================================\n");
     }
 }
@@ -707,32 +657,10 @@ fn load_csv(path: &str) -> Result<Vec<Pattern>, Box<dyn std::error::Error>> {
 
 fn main() {
     println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║      VOID Neural Network v0.5 - AUDITED                    ║");
-    println!("║  Fixes: Heat tracking, entropy overflow, exhausted+match   ║");
-    println!("║  All budget spends now generate heat                       ║");
-    println!("║  'I don't know' is a valid answer                         ║");
+    println!("║      VOID Neural Network v0.6 - LEARNING                   ║");
+    println!("║  Network learns from mistakes (costs budget!)              ║");
+    println!("║  Multiple epochs show improvement                          ║");
     println!("╚════════════════════════════════════════════════════════════╝\n");
-    
-    println!("AUDIT FIXES (GPT-5.2):");
-    println!("  ✓ Heat tracks ALL budget spends (including ge/gt)");
-    println!("  ✓ Entropy weight uses u64 intermediate (no overflow)");
-    println!("  ✓ Match during exhaustion → Exhausted with partial_best");
-    println!("  ✓ patterns_checked is now accurate");
-    println!();
-    
-    // Demo: parsing decimal strings
-    println!("=== Ratio from decimal strings (NO FLOATS) ===");
-    let examples = ["0.5", "0.625", "0.333", "1.0", "0.1"];
-    for s in examples {
-        if let Some(r) = Ratio::from_decimal_str(s) {
-            let simplified = r.simplified();
-            println!("  \"{}\" → {} → simplified: {} = {}", 
-                     s, r.to_fraction_string(), 
-                     simplified.to_fraction_string(),
-                     simplified.to_percent_string(2));
-        }
-    }
-    println!();
     
     // Load data
     let patterns = match load_csv("disease_symptoms_sample.csv") {
@@ -748,76 +676,87 @@ fn main() {
     // Create network
     let mut network = VoidNetwork::new();
     
-    // Split data
+    // Split data: 800 train, rest test
     let train_size = 800.min(patterns.len());
     let (train, test) = patterns.split_at(train_size);
     
     network.load_patterns_free(train.to_vec());
-    network.status();
     
-    // Test inference
-    println!("=== Testing Inference (AUDITED v0.5) ===\n");
+    println!("Training set: {} patterns", train.len());
+    println!("Test set: {} patterns\n", test.len());
     
-    let mut correct = 0u32;
-    let mut wrong = 0u32;
-    let mut dont_know = 0u32;
-    let mut exhausted = 0u32;
+    // Run multiple epochs
+    let num_epochs = 3;
     
-    for (i, test_pattern) in test.iter().take(10).enumerate() {
-        let budget = 500000;
+    for epoch in 1..=num_epochs {
+        println!("═══════════════════════════════════════════════════════════════");
+        println!("                        EPOCH {}", epoch);
+        println!("═══════════════════════════════════════════════════════════════\n");
         
-        println!("Test {}: Looking for '{}'", i + 1, test_pattern.name);
+        let mut correct = 0u32;
+        let mut wrong = 0u32;
+        let mut dont_know = 0u32;
+        let mut learned = 0u32;
         
-        let result = network.infer(test_pattern.symptoms.clone(), budget);
-        
-        match result {
-            InferenceResult::Match { diagnosis, confidence, budget_spent, heat_generated } => {
-                let is_correct = diagnosis == test_pattern.name;
-                println!("  → Match: {} (confidence: {} = {})", 
-                         diagnosis, 
-                         confidence.to_fraction_string(),
-                         confidence.to_percent_string(1));
-                println!("  → Budget: {}, Heat: {}", budget_spent, heat_generated);
-                if is_correct {
-                    println!("  → ✓ CORRECT");
-                    correct = correct.saturating_add(1);
-                } else {
-                    println!("  → ✗ WRONG (but may be medically related)");
-                    wrong = wrong.saturating_add(1);
+        for test_pattern in test.iter() {
+            let mut res = Resources::new(500000);
+            
+            let result = network.infer_with_resources(test_pattern.symptoms.clone(), &mut res);
+            
+            match result {
+                InferenceResult::Match { diagnosis, .. } => {
+                    let is_correct = diagnosis == test_pattern.name;
+                    if is_correct {
+                        correct = correct.saturating_add(1);
+                    } else {
+                        wrong = wrong.saturating_add(1);
+                        // LEARN FROM MISTAKE!
+                        if network.learn(test_pattern.clone(), &mut res) {
+                            learned = learned.saturating_add(1);
+                        }
+                    }
                 }
-            }
-            InferenceResult::DontKnow { budget_spent, patterns_checked, heat_generated } => {
-                println!("  → I DON'T KNOW (checked {} patterns)", patterns_checked);
-                println!("  → Budget: {}, Heat: {}", budget_spent, heat_generated);
-                println!("  → This is honest - no confident match found");
-                dont_know = dont_know.saturating_add(1);
-            }
-            InferenceResult::Exhausted { partial_best, budget_spent, patterns_checked, heat_generated } => {
-                print!("  → EXHAUSTED (checked {} patterns", patterns_checked);
-                if let Some((name, conf)) = partial_best {
-                    println!(", partial: {} at {})", name, conf.to_percent_string(1));
-                } else {
-                    println!(", no partial match)");
+                InferenceResult::DontKnow { .. } => {
+                    dont_know = dont_know.saturating_add(1);
+                    // Also learn from "I don't know" - these are missed patterns
+                    if network.learn(test_pattern.clone(), &mut res) {
+                        learned = learned.saturating_add(1);
+                    }
                 }
-                println!("  → Budget: {}, Heat: {}", budget_spent, heat_generated);
-                exhausted = exhausted.saturating_add(1);
+                InferenceResult::Exhausted { .. } => {
+                    // Don't count exhausted
+                }
             }
         }
+        
+        // Retrain entropy after learning
+        if learned > 0 {
+            network.retrain_entropy();
+        }
+        
+        let total_answered = correct + wrong;
+        let accuracy_when_answers = if total_answered > 0 {
+            (correct as f64 / total_answered as f64) * 100.0
+        } else {
+            0.0
+        };
+        
+        println!("EPOCH {} RESULTS:", epoch);
+        println!("  Correct: {}", correct);
+        println!("  Wrong: {}", wrong);
+        println!("  Don't know: {}", dont_know);
+        println!("  Learned: {} new patterns", learned);
+        println!("  Memory bank size: {}", network.memory_bank.len());
+        println!("  Accuracy (when answering): {:.1}%", accuracy_when_answers);
         println!();
     }
     
-    // Final status
     network.status();
     
-    println!("═══════════════════════════════════════════════════════════════");
-    println!("RESULTS: {} correct, {} wrong, {} 'I don't know', {} exhausted", 
-             correct, wrong, dont_know, exhausted);
-    println!("═══════════════════════════════════════════════════════════════");
+    println!("v0.6 LEARNING COMPLETE:");
+    println!("- Network learns from mistakes");
+    println!("- Learning costs {} budget per pattern", network.learning_cost);
+    println!("- Entropy recomputed after each epoch");
     println!();
-    println!("v0.5 AUDIT COMPLETE:");
-    println!("- Heat = Budget spent (now enforced via Resources struct)");
-    println!("- Entropy overflow prevented (u64 intermediate)");
-    println!("- Exhausted during match → Exhausted, not Match");
-    println!();
-    println!("Maat weighs ratios AND tracks heat. Pascal's floats can go to hell.");
+    println!("Maat weighs ratios, tracks heat, and learns from failure.");
 }

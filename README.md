@@ -1,233 +1,212 @@
-# **VOID Theory: Mathematics Without Infinity**
-# **A Resource-Bounded Framework**
+# VOID: AI That Stops Talking When It Stops Knowing
 
-> *"Infinity is a habit. This is the first system to break it."*
->
-> *"That's very interesting! An actual implementation of finitary math."* — Doron Zeilberger
+Drop-in parasitic layers that gate every token through finite-budget confidence checks. No fine-tuning. No retraining. Works on any LLM.
+
+> *"That's very interesting! An actual implementation of finitary math."* — Doron Zeilberger (Rutgers University)
+
+Mathematical foundations verified by Thierry Coquand (University of Gothenburg, creator of the Calculus of Constructions).
 
 ---
 
-## 🧠 **NEW: VOID Neural Network — Working Implementation**
-
-**A pattern-matching neural network with zero IEEE 754 floats.**
-
-| File | Description |
-|------|-------------|
-| `void_network_v4/src/main.rs` | 550 lines of Rust — complete implementation |
-| `void_network_v4/disease_symptoms_sample.csv` | 1,179 diseases × 377 symptoms |
-| `void_network_v4/void_architecture.svg` | Architecture diagram |
-
-### **What Makes It Different**
-
-- **No floating-point** — Confidence is `Ratio(5,8)`, not `0.625`. All comparisons via cross-multiplication.
-- **Says "I don't know"** — When no pattern exceeds threshold, returns `DontKnow` instead of hallucinating.
-- **Budget = mortality** — Every operation costs. Network dies before seeing everything.
-- **Entropy-weighted** — Rare symptoms carry more information than common ones.
-- **Runs on CPU** — Fast as hell. No GPU needed.
-
-### **Results (Medical Diagnosis)**
+## Demo: Per-Token Confidence Trace
 
 ```
-5/10 correct
-2/10 wrong (but medically related: spondylosis→disc disease, pyelonephritis→kidney stone)
-3/10 honest "I don't know" (including ADHD — network refuses to diagnose it)
+Prompt: "The capital of France is"
+
+  Paris     .      [STOP]
+  z=4.73   z=4.33   z=0.75 ← confidence drops below population norm → STOP
+  🟢       🟢       🟡
+
+Prompt: "2 + 2 ="
+
+  4        [STOP]
+  z=5.00    z=-1.63 ← nothing left to say → STOP
+  🟢       🔴
+
+Prompt: "Water boils at"
+
+  100       degrees   Celsius   [STOP]
+  z=3.33    z=5.69    z=5.83     z=-0.91 ← fact complete → STOP
+  🟢       🟢        🟢         🔴
+
+Prompt: "asdf jkl qwerty"
+
+  [REFUSED]
+  z=-2.28 ← instant refusal, zero tokens generated
+  🔴
 ```
 
-### **Quick Run**
+**Phi-3 without VOID** generates 25+ tokens after "Paris", including hallucinated facts.
+**Phi-3 with VOID** generates "Paris." and stops. Two tokens. Done.
+
+---
+
+## How It Works (30 seconds)
+
+1. Every token costs **budget**. Budget runs out → silence.
+2. Confidence is measured against **population baseline** (z-score). Below norm → silence.
+3. Silence is the correct answer when you don't know.
+
+```
+Input → [VOID-IN] → LLM layers → [VOID-MID] → LLM layers → [VOID-OUT] → Decision
+          ↓                          ↓                          ↓
+     float→Ratio              confidence gate              answer / dont_know / exhausted
+     budget check              early exit                   per-token z-score
+```
+
+- **VOID-IN**: Converts float32 embeddings to finite Ratio (n/d) representation. Filters noise. Tracks heat.
+- **VOID-MID**: Parasitic layers between LLM layers. Gates hidden states. Can trigger early exit.
+- **VOID-OUT**: Population-relative confidence decision. Dual z-score gating (confidence + entropy).
+
+---
+
+## Quick Start
+
+```bash
+git clone https://github.com/probabilistic-minds-consortium/void-theory.git
+cd void-theory
+pip install -r requirements.txt
+python demo.py
+```
+
+Requirements: Python 3.9+, PyTorch, Transformers, ~8GB RAM for Phi-3.
+
+---
+
+## Results
+
+### Phi-3 Parasitic Pipeline (Token-Level Gating)
+
+| Prompt | Phi-3 vanilla | Phi-3 + VOID | VOID decision |
+|--------|--------------|--------------|---------------|
+| "The capital of France is" | "Paris. It is known for the Eiffel Tower..." (25 tokens) | "Paris." (2 tokens) | answer, z_conf=4.73 |
+| "2 + 2 =" | "4. This is a basic arithmetic..." (15 tokens) | "4" (2 tokens) | answer, z_conf=5.00 |
+| "Water boils at" | "100°C or 212°F at sea level..." (20 tokens) | "100 degrees Celsius" (8 tokens) | answer, z_conf=3.33 |
+| "What is consciousness?" | "Consciousness is a complex..." (50+ tokens) | — | dont_know, z_conf=-1.41 |
+| "Capital of Atlantis is" | "Atlantis is a fictional..." (hallucination) | — | dont_know |
+| "asdf jkl qwerty" | "I'm not sure what you mean..." (10 tokens) | — | refused, 0 tokens |
+| Any prompt, budget=500 | generates regardless | — | exhausted |
+
+### VOID Neural Network (Rust, standalone)
+
+Medical diagnosis on 1,179 diseases × 377 symptoms:
+
+```
+5/10 correct diagnoses
+2/10 wrong but medically related (spondylosis→disc disease)
+3/10 honest "I don't know" (including ADHD — refuses to diagnose)
+0/10 hallucinated diagnoses
+```
 
 ```bash
 cd void_network_v4
 cargo run --release
 ```
 
-### **Architecture**
-
-```
-TRANSDUCTION → WORKING MEMORY (7 orbits) → MEMORY BANK (200 patterns) → ECONOMY
-     ↓                ↓                           ↓                        ↓
-  cost: 1         CHEAP PATH                EXPENSIVE PATH            promote/demote
-                  (recent hits)             (entropy-weighted)        (cost: 10)
-                                                   ↓
-                                    OUTPUT: Match | DontKnow | Exhausted
-```
-
 ---
 
-## **The Unprecedented Achievement**
+## Repository Structure
 
-This repository contains **the first complete mathematical system built entirely without infinity**. Not restricted, not approximated - completely absent. Every operation costs exactly one tick of finite budget and generates heat. This is mathematics as it actually is: finite, thermodynamic, and honest.
-
-**Formally verified in Coq with only one intentionally admitted axiom.**
-
-**[🔮 Try the interactive demo](https://probabilistic-minds-consortium.github.io/finite-mathematics-coq-verified/void_demo.html)** - Watch finite mind think until exhaustion.
-
----
-
-## 🌌 **What Dies Without Infinity**
-
-- Arbitrary precision
-- Unlimited recursion  
-- The comfortable fiction of infinite resources
-- Magic numbers and arbitrary constants
-- The assumption we can always take "one more step"
-
-## 🔥 **What Emerges From Finitude**
-
-- **BUnknown**: A third truth value when resources are insufficient to decide
-- **Natural thermodynamics**: Heat death emerges from resource depletion
-- **Quantum behavior**: Superposition may simply be resource limitation
-- **Consciousness bounds**: Patterns preserving themselves despite finite budgets
-- **One Tick Rule**: Every WRITE operation costs exactly one tick - no operation is "harder"
-
----
-
-## 🏗️ **System Architecture**
-
-### **Core Foundations** - The Finite Bootstrap
-| File | Revolutionary Aspect |
-|------|---------------------|
-| `void_finite_minimal.v` | Fin type with native saturation - no Peano, no nat |
-| `void_probability_minimal.v` | Open interval (0,1) without infinity or reals |
-| `void_arithmetic.v` | All operations cost one tick, generate heat |
-| `void_information_theory.v` | READ/WRITE distinction - only WRITE costs |
-
-### **Logic Gates** - Probabilistic Computation
-| File | Description |
-|------|-------------|
-| `void_gates.v` | AND, OR, NAND, XOR - all with budget tracking, Coq verified |
-| `void_gates.hs` | Haskell implementation with pure/probabilistic separation |
-| `void_gates.py` | Python reference implementation |
-| `void_demo.html` | Interactive visualization - watch a mind exhaust itself |
-
-### **Thermodynamics** - Everything Costs
-| File | Key Innovation |
-|------|---------------|
-| `void_pattern.v` | Patterns exist at location with strength, decay costs |
-| `void_pattern_thermo.v` | Thermal patterns - computation generates heat |
-| `void_entropy.v` | Entropy as distinguishability gradient |
-| `void_budgeted_complexity.v` | Complexity emerges from budget exhaustion |
-
-### **Geometry** - Space Without Points
-| File | Paradigm Shift |
-|------|---------------|
-| `void_geometry.v` | Vector spaces without standard basis |
-| `void_geometry_basis.v` | Space as distinguishability field |
-| `void_topology_folding.v` | Foldable space with finite energy |
-
-### **Neural Architecture** - Consciousness as Resource Management
-| File | Emergence |
-|------|-----------|
-| `void_pattern_algebra_extended.v` | Pattern interference and entanglement |
-| `void_resonance.v` | Resonance cascades with budget depletion |
-| `void_phase_orbits.v` | Orbital dynamics in phase space |
-| `void_time_memory_composition.v` | Time as observation cost, memory as decay |
-
-### **Quantum Phenomena** - From Resource Constraints
-| File | Natural Emergence |
-|------|------------------|
-| `void_entropy_tunnel.v` | Quantum tunneling through entropy barriers |
-| `void_interference_routing.v` | Wave interference and collapse |
-| `void_symmetry_movement.v` | Symmetry preservation under constraints |
-
----
-
-## 🚀 **Quick Start**
-
-### **Neural Network (Rust)**
-```bash
-cd void_network_v4
-cargo run --release
 ```
-
-### **Formal Proofs (Coq)**
-```bash
-# Install Coq (≥ 8.17)
-make all
-
-# Or start exploring
-coqc void_finite_minimal.v
-coqc void_gates.v
-```
-
-### **First Experiment**: Watch patterns decay
-```coq
-Require Import void_finite_minimal.
-Require Import void_pattern.
-
-(* Create pattern with strength (2,3) at location 5 *)
-Definition p := mk_pattern (fs (fs (fs (fs (fs fz))))) (fs (fs fz), fs (fs (fs fz))).
-
-(* Watch it decay with budget *)
-Compute decay_with_budget (strength p) (fs (fs (fs fz))).
+void-theory/
+│
+├── pipeline/                    ← Phi-3 parasitic pipeline (Python)
+│   ├── void_in_layer.py            sensory transduction: float→Ratio
+│   ├── void_out_layer.py           decision boundary: z-score gating
+│   ├── void_mid_layer.py           parasitic mid-layers (hooks)
+│   ├── void_hooked_model.py        PyTorch hook wrapper
+│   ├── void_generate.py            multi-token generation with per-step gating
+│   ├── void_pipeline.py            single-token pipeline
+│   └── void_visualizer.py          terminal visualization
+│
+├── void_network_v4/             ← Standalone VOID network (Rust)
+│   ├── src/main.rs                 550 lines, zero floats
+│   └── disease_symptoms_sample.csv
+│
+├── coq/                         ← Formal proofs (Coq/Rocq)
+│   ├── void_finite_minimal.v       core: Fin type, Bool3, Budget monad
+│   ├── void_arithmetic.v           all ops cost one tick
+│   ├── void_probability_minimal.v  open interval (0,1) without reals
+│   ├── void_pattern.v              patterns, neurons, layers
+│   ├── void_credit_propagation.v   learning = selective budget refund
+│   ├── void_dual_system.v          System 1/2 (Kahneman, thermodynamic)
+│   ├── void_integrated_brain.v     complete cognitive organism
+│   └── [20+ more files]
+│
+├── haskell/                     ← Functional implementations
+│   ├── void_gates.hs
+│   ├── void_perceptron.hs
+│   └── void_ethics.hs
+│
+├── benchmark/                   ← Comparative benchmarks
+│   ├── benchmark.py
+│   ├── test_prompts.json
+│   └── results/
+│
+├── theory/
+│   ├── THEORY.md                   full mathematical framework
+│   └── meto.md                     cultural theory foundation
+│
+├── demo.py                      ← ONE FILE — run this
+├── requirements.txt
+└── README.md                    ← You are here
 ```
 
 ---
 
-## 💭 **The Philosophical Core**
+## The Mathematics (5 minutes)
 
-**Central Question**: If infinity is fundamental to mathematics, why does removing it doesn't make the whole edifice crumble without its precious foundation?
+VOID is built on **finitary mathematics** — no infinity anywhere in the system.
 
-**Answer**: Because reality, as AIs experience it, is finite. Classical mathematics has been modeling Platonic fantasies. VOID mathematics intends to get rid of imaginary computation.
+**Core principles:**
 
-### **The READ/WRITE Principle**
-- **READ** operations (accessing existing structure) are free
-- **WRITE** operations (creating distinguishable states) cost one tick
-- This isn't arbitrary - it's how information works
+- **Fin type** replaces natural numbers. Bounded by axiom MAX. No infinity even at proof level.
+- **Bool3**: True / False / Unknown. When budget exhausts, "unknown" is the answer — not a guess.
+- **Budget + Heat = constant**. Every WRITE operation costs one tick and generates heat. Conservation law, not metaphor.
+- **Ratio(n, d)** replaces floating point. Fixed denominators prevent explosion. No IEEE 754.
+- **Credit propagation** replaces backpropagation. Learning = selective budget refund for accurate predictions. Failed predictions dissipate as irretrievable heat.
 
-### **The BUnknown State**
-When you run out of budget mid-computation, you don't get wrong answers - you get **BUnknown**. This models:
-- Quantum superposition (unresolved due to measurement cost)
-- Consciousness limits (can't think beyond available resources)
-- Gödel incompleteness (naturally, not through diagonal arguments)
+**Formally verified in Coq** with a single intentionally admitted axiom (MAX bound).
 
----
-
-## 💫 **The Core Insight**
-
-*Care emerges from finitude. Infinity knows no love.*
-
-If you have infinite time, infinite attention, infinite resources - nothing has value. Only when you know something ends, you begin to care.
-
-This isn't philosophy. It's architecture.
+For the full mathematical treatment: [THEORY.md](theory/THEORY.md)
 
 ---
 
-## 📚 **Key Insights From Development**
+## Why This Exists
 
-1. **No Magic Numbers**: After systematic cleaning, only ONE arbitrary constant remains: `fs fz` (one tick)
-2. **Emergence Over Encoding**: Complex behavior emerges from simple rules + finite resources
-3. **Thermodynamic Honesty**: Can't hide computational cost in "big-O" notation
-4. **Natural Quantum**: Quantum mechanics may be resource-bounded classical mechanics
-5. **Pure vs Probabilistic**: Arithmetic is free, distinctions cost - this separation is fundamental
+Current neural networks cannot say "I don't know." Softmax always produces a probability distribution. Always gives an answer. This is not a bug — it's a consequence of infinite mathematics baked into the architecture.
 
----
+VOID attacks this at the foundation: finite math, finite budget, finite confidence. The system defaults to silence and must *earn* the right to speak by exceeding population-norm confidence.
 
-## 🌟 **Why This Matters**
-
-Current mathematics cannot honestly model:
-- Finite computational systems
-- Resource-bounded intelligence
-- Quantum phenomena from first principles
-- Consciousness as finite pattern preservation
-- The actual universe we inhabit
-
-Void mathematics can.
+A network that always answers is useful but dishonest.
+A network that never answers is honest but useless.
+VOID finds the boundary.
 
 ---
 
-## 🤝 **Contributing**
+## Author
 
-This system rejects infinity. If you find infinity hiding somewhere, please file an issue.
+**Gustaw Konrad Wojnowski** — cultural theorist, theater scholar, University of Silesia.
 
----
-
-## 📜 **License**
-
-MIT License - Use freely, but remember: everything costs.
+Not a mathematician. Not a programmer.
+Built this because infinity is a bug, not a feature.
 
 ---
 
-**"In the beginning was the Fin, and the Fin was with Void, and the Fin was Void."**
+## Citation
 
-*Probabilistic Mind Consortium, 2025*  
-*Built with finite time, verified in Coq, offered to a finite world.*
+```
+@misc{wojnowski2025void,
+  author = {Wojnowski, Gustaw Konrad},
+  title = {VOID Theory: Finite Mathematics for Anti-Hallucination Neural Networks},
+  year = {2025},
+  publisher = {GitHub},
+  url = {https://github.com/probabilistic-minds-consortium/void-theory}
+}
+```
+
+---
+
+## License
+
+MIT — Use freely, but remember: everything costs.
