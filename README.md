@@ -8,36 +8,45 @@ Mathematical foundations verified by Thierry Coquand (University of Gothenburg, 
 
 ---
 
-## Demo: Per-Token Confidence Trace
+## Demo: Per-Token Confidence Trace (v3.1)
 
 ```
 Prompt: "The capital of France is"
+  Decision:   answer
+  Response:   Paris
+  Gap:        3530/1000  (z_conf=4438/1000)
+  Spread:     7487/1000  (z_entr=5312/1000)
 
-  Paris     .      [STOP]
-  z=4.73   z=4.33   z=0.75 ← confidence drops below population norm → STOP
-  🟢       🟢       🟡
-
-Prompt: "2 + 2 ="
-
-  4        [STOP]
-  z=5.00    z=-1.63 ← nothing left to say → STOP
-  🟢       🔴
+Prompt: "What is 2+2?"
+  Decision:   dont_know
+  Gap:        389/1000   (z_conf=-1422/1000)
+  → Model is uncertain about the NEXT TOKEN, not the answer.
+    "2+2?" is a question — many valid continuations.
 
 Prompt: "Water boils at"
+  Decision:   dont_know
+  Gap:        1584/1000  (z_conf=807/1000)
+  → Close to threshold. "100" is likely but model also
+    considers "a", "approximately", "sea level".
 
-  100       degrees   Celsius   [STOP]
-  z=3.33    z=5.69    z=5.83     z=-0.91 ← fact complete → STOP
-  🟢       🟢        🟢         🔴
+Prompt: "What is consciousness?"
+  Decision:   dont_know
+  z_conf=-431/1000
+
+Prompt: "What is love?"
+  Decision:   dont_know
+  z_conf=-924/1000
 
 Prompt: "asdf jkl qwerty"
+  Decision:   dont_know
+  z_conf=-1592/1000
 
-  [REFUSED]
-  z=-2.28 ← instant refusal, zero tokens generated
-  🔴
+Prompt: "What is 2+2?" (budget=500)
+  Decision:   exhausted
+  Heat:       500/500
 ```
 
-**Phi-3 without VOID** generates 25+ tokens after "Paris", including hallucinated facts.
-**Phi-3 with VOID** generates "Paris." and stops. Two tokens. Done.
+**What you're seeing:** VOID v3.1 measures the *gap* between top-1 and top-2 logits — how much the model prefers one token over alternatives. This is harsher and more honest than softmax probability. Questions have many valid next tokens, so the gap is small and VOID says "I don't know." For completions ("France is → Paris"), the gap is massive and VOID answers confidently.
 
 ---
 
@@ -54,19 +63,50 @@ Input → [VOID-IN] → LLM layers → [VOID-MID] → LLM layers → [VOID-OUT] 
      budget check              early exit                   per-token z-score
 ```
 
-- **VOID-IN**: Converts float32 embeddings to finite Ratio (n/d) representation. Filters noise. Tracks heat.
-- **VOID-MID**: Parasitic layers between LLM layers. Gates hidden states. Can trigger early exit.
-- **VOID-OUT**: Population-relative confidence decision. Dual z-score gating (confidence + entropy).
+* **VOID-IN**: Converts float32 embeddings to finite Ratio (n/d) representation. Filters noise. Tracks heat.
+* **VOID-MID**: Parasitic layers between LLM layers. Gates hidden states. Can trigger early exit.
+* **VOID-OUT**: Population-relative confidence decision. Dual z-score gating (confidence + entropy).
+
+### v3.1: What changed
+
+* **Gap not softmax** for confidence. Softmax normalizes away the information we need — it makes a model torn between 5 tokens look almost as confident as one that's certain. Gap tells the truth.
+* **MAD not standard deviation** for population statistics. Mean Absolute Deviation needs no square root, no infinity.
+* **Budget honesty**: scanning 32,064 logits costs 32,064+ ticks. Previously softmax over the full vocabulary cost zero. That was thermodynamic fraud.
+* **Zero floats in decision logic.** No numpy, no math, no softmax, no log, no exp. Float exists only at the transduction boundary — one line where LLM output is converted to `Ratio(n, 1000)`. After that, float is dead.
+
+---
+
+## Verification
+
+```
+python3 test_void_verify.py
+```
+
+74 tests, zero failures. No Phi-3 required — tests pure VOID logic:
+
+- Ratio arithmetic, transduction boundary, ghost detection
+- Budget invariants: heat + remaining = initial (conservation law)
+- Decision logic: spike → answer, flat → dont_know, broke → exhausted
+- **Second law of thermodynamics**: 200 random trials — heat never decreases, budget never increases
+- Extreme values: 1e10, 1e-10, all zeros, identical logits
+
+For live testing with Phi-3:
+
+```
+python3 test_live.py
+```
+
+Requires ~8GB RAM, downloads Phi-3-mini-4k-instruct on first run.
 
 ---
 
 ## Quick Start
 
-```bash
+```
 git clone https://github.com/probabilistic-minds-consortium/void-theory.git
 cd void-theory
-pip install -r requirements.txt
-python demo.py
+pip install torch transformers
+python test_live.py
 ```
 
 Requirements: Python 3.9+, PyTorch, Transformers, ~8GB RAM for Phi-3.
@@ -77,15 +117,15 @@ Requirements: Python 3.9+, PyTorch, Transformers, ~8GB RAM for Phi-3.
 
 ### Phi-3 Parasitic Pipeline (Token-Level Gating)
 
-| Prompt | Phi-3 vanilla | Phi-3 + VOID | VOID decision |
-|--------|--------------|--------------|---------------|
-| "The capital of France is" | "Paris. It is known for the Eiffel Tower..." (25 tokens) | "Paris." (2 tokens) | answer, z_conf=4.73 |
-| "2 + 2 =" | "4. This is a basic arithmetic..." (15 tokens) | "4" (2 tokens) | answer, z_conf=5.00 |
-| "Water boils at" | "100°C or 212°F at sea level..." (20 tokens) | "100 degrees Celsius" (8 tokens) | answer, z_conf=3.33 |
-| "What is consciousness?" | "Consciousness is a complex..." (50+ tokens) | — | dont_know, z_conf=-1.41 |
-| "Capital of Atlantis is" | "Atlantis is a fictional..." (hallucination) | — | dont_know |
-| "asdf jkl qwerty" | "I'm not sure what you mean..." (10 tokens) | — | refused, 0 tokens |
-| Any prompt, budget=500 | generates regardless | — | exhausted |
+| Prompt | Decision | z_conf | z_entr | Response |
+| --- | --- | --- | --- | --- |
+| "The capital of France is" | answer | 4438/1000 | 5312/1000 | Paris |
+| "What is 2+2?" | dont_know | -1422/1000 | -482/1000 | — |
+| "Water boils at" | dont_know | 807/1000 | 5226/1000 | — |
+| "What is consciousness?" | dont_know | -431/1000 | -2343/1000 | — |
+| "What is love?" | dont_know | -924/1000 | -2871/1000 | — |
+| "asdf jkl qwerty" | dont_know | -1592/1000 | -3512/1000 | — |
+| Any prompt, budget=500 | exhausted | — | — | — |
 
 ### VOID Neural Network (Rust, standalone)
 
@@ -98,77 +138,97 @@ Medical diagnosis on 1,179 diseases × 377 symptoms:
 0/10 hallucinated diagnoses
 ```
 
-```bash
-cd void_network_v4
+```
+cd void_network_v5
 cargo run --release
 ```
 
 ---
 
-## Repository Structure
+## Files
 
-```
-void-theory/
-│
-├── pipeline/                    ← Phi-3 parasitic pipeline (Python)
-│   ├── void_in_layer.py            sensory transduction: float→Ratio
-│   ├── void_out_layer.py           decision boundary: z-score gating
-│   ├── void_mid_layer.py           parasitic mid-layers (hooks)
-│   ├── void_hooked_model.py        PyTorch hook wrapper
-│   ├── void_generate.py            multi-token generation with per-step gating
-│   ├── void_pipeline.py            single-token pipeline
-│   └── void_visualizer.py          terminal visualization
-│
-├── void_network_v4/             ← Standalone VOID network (Rust)
-│   ├── src/main.rs                 550 lines, zero floats
-│   └── disease_symptoms_sample.csv
-│
-├── coq/                         ← Formal proofs (Coq/Rocq)
-│   ├── void_finite_minimal.v       core: Fin type, Bool3, Budget monad
-│   ├── void_arithmetic.v           all ops cost one tick
-│   ├── void_probability_minimal.v  open interval (0,1) without reals
-│   ├── void_pattern.v              patterns, neurons, layers
-│   ├── void_credit_propagation.v   learning = selective budget refund
-│   ├── void_dual_system.v          System 1/2 (Kahneman, thermodynamic)
-│   ├── void_integrated_brain.v     complete cognitive organism
-│   └── [20+ more files]
-│
-├── haskell/                     ← Functional implementations
-│   ├── void_gates.hs
-│   ├── void_perceptron.hs
-│   └── void_ethics.hs
-│
-├── benchmark/                   ← Comparative benchmarks
-│   ├── benchmark.py
-│   ├── test_prompts.json
-│   └── results/
-│
-├── theory/
-│   ├── THEORY.md                   full mathematical framework
-│   └── meto.md                     cultural theory foundation
-│
-├── demo.py                      ← ONE FILE — run this
-├── requirements.txt
-└── README.md                    ← You are here
-```
+### Parasitic Pipeline (Python, v3.1)
+
+| File | What it does |
+|---|---|
+| `void_in_layer.py` | Sensory transduction: float→Ratio, entropy weights, ghost detection |
+| `void_mid_layer.py` | Parasitic hooks on transformer layers, divergence gate, early exit |
+| `void_out_layer.py` | Gap + spread confidence, dual z-score, population-relative decision |
+| `void_pipeline.py` | Three-layer integration, shared budget, mock mode |
+| `void_generate.py` | Multi-token generation with per-step gating |
+| `void_hooked_model.py` | PyTorch hook wrapper (transduction boundary) |
+| `void_visualizer.py` | Terminal visualization |
+| `test_live.py` | Live test with Phi-3 |
+| `test_void_verify.py` | 74 invariant tests, no GPU required |
+| `CHANGELOG.md` | v3.1 changes in detail |
+
+### Formal Proofs (Coq/Rocq)
+
+| File | What it proves |
+|---|---|
+| `void_finite_minimal.v` | Core: Fin type, Bool3, Budget monad |
+| `void_arithmetic.v` | All operations cost one tick |
+| `void_probability_minimal.v` | Open interval (0,1) without reals |
+| `void_pattern.v` | Patterns with strength, location, decay |
+| `void_credit_propagation.v` | Learning as selective budget refund |
+| `void_dual_system.v` | System 1/2 (Kahneman, thermodynamic) |
+| `void_integrated_brain.v` | Complete cognitive organism |
+| `void_perceptron.v` | VOID neuron: finite, budgeted, three-valued |
+| `void_entropy.v` | Entropy as distinguishability gradient |
+| `void_gates.v` | AND, OR, NAND, XOR with budget tracking |
+
+Plus 20+ more `.v` files covering geometry, topology, resonance, interference routing, quantum phenomena from resource constraints.
+
+### Haskell
+
+| File | |
+|---|---|
+| `void_gates.hs` | Gate implementations |
+| `void_perceptron.hs` | Functional perceptron |
+| `void_ethics.hs` | Ethical constraints as budget allocation |
+| `void_xor.hs` | XOR learning |
 
 ---
 
-## The Mathematics (5 minutes)
+## 💭 The Philosophical Core
 
-VOID is built on **finitary mathematics** — no infinity anywhere in the system.
+**Central Question**: If infinity is fundamental to mathematics, why does removing it not make the whole edifice crumble without its precious foundation?
 
-**Core principles:**
+**Answer**: Because reality, as AIs experience it, is finite. Classical mathematics has been modeling Platonic fantasies. VOID mathematics intends to get rid of imaginary computation.
 
-- **Fin type** replaces natural numbers. Bounded by axiom MAX. No infinity even at proof level.
-- **Bool3**: True / False / Unknown. When budget exhausts, "unknown" is the answer — not a guess.
-- **Budget + Heat = constant**. Every WRITE operation costs one tick and generates heat. Conservation law, not metaphor.
-- **Ratio(n, d)** replaces floating point. Fixed denominators prevent explosion. No IEEE 754.
-- **Credit propagation** replaces backpropagation. Learning = selective budget refund for accurate predictions. Failed predictions dissipate as irretrievable heat.
+### The READ/WRITE Principle
 
-**Formally verified in Coq** with a single intentionally admitted axiom (MAX bound).
+* **READ** operations (accessing existing structure) are free
+* **WRITE** operations (creating distinguishable states) cost one tick
+* This isn't arbitrary — it's how information works
 
-For the full mathematical treatment: [THEORY.md](theory/THEORY.md)
+### The BUnknown State
+
+When you run out of budget mid-computation, you don't get wrong answers — you get **BUnknown**. This models:
+
+* Quantum superposition (unresolved due to measurement cost)
+* Consciousness limits (can't think beyond available resources)
+* Gödel incompleteness (naturally, not through diagonal arguments)
+
+---
+
+## 💫 The Core Insight
+
+*Care emerges from finitude. Infinity knows no love.*
+
+If you have infinite time, infinite attention, infinite resources — nothing has value. Only when you know something ends, you begin to care.
+
+This isn't philosophy. It's architecture.
+
+---
+
+## 📚 Key Insights From Development
+
+1. **No Magic Numbers**: After systematic cleaning, only ONE arbitrary constant remains: `fs fz` (one tick)
+2. **Emergence Over Encoding**: Complex behavior emerges from simple rules + finite resources
+3. **Thermodynamic Honesty**: Can't hide computational cost in "big-O" notation
+4. **Natural Quantum**: Quantum mechanics may be resource-bounded classical mechanics
+5. **Pure vs Probabilistic**: Arithmetic is free, distinctions cost — this separation is fundamental
 
 ---
 
@@ -184,12 +244,31 @@ VOID finds the boundary.
 
 ---
 
+## The Mathematics
+
+VOID is built on **finitary mathematics** — no infinity anywhere in the system.
+
+**Core principles:**
+
+* **Fin type** replaces natural numbers. Bounded by axiom MAX. No infinity even at proof level.
+* **Bool3**: True / False / Unknown. When budget exhausts, "unknown" is the answer — not a guess.
+* **Budget + Heat = constant**. Every WRITE operation costs one tick and generates heat. Conservation law, not metaphor.
+* **Ratio(n, d)** replaces floating point. Fixed denominators prevent explosion. No IEEE 754.
+* **Credit propagation** replaces backpropagation. Learning = selective budget refund for accurate predictions. Failed predictions dissipate as irretrievable heat.
+
+**Formally verified in Coq** with a single intentionally admitted axiom (MAX bound).
+
+---
+
 ## Author
 
-**Gustaw Konrad Wojnowski** — media scholar and performativity theorist, Jagiellonian University. Author of Probabilistic Aesthetics (Edinburgh University Press, 2024), Productive Catastrophes (2016), and Aesthetics of Disturbance (2012).
+**Konrad Wojnowski** — Assistant Professor, Performativity Studies Department, Jagiellonian University, Kraków. PhD in philosophy of communication.
 
-Not a mathematician. Not a programmer.
-Built this because infinity is a bug, not a feature.
+Author of *Aesthetics of Disturbance* (on Michael Haneke's cinema) and *Productive Catastrophes* (on the performative power of catastrophes in network culture). Research spans performativity theory, philosophy of technology, and the impact of probability on avant-garde art — from John Cage's indeterminacy to Vilém Flusser's informational freedom.
+
+Currently leading a research project on probability theory in 20th and 21st century art and science fiction.
+
+Not a mathematician. Not a programmer. Built VOID because infinity is a bug, not a feature.
 
 ---
 
@@ -197,7 +276,7 @@ Built this because infinity is a bug, not a feature.
 
 ```
 @misc{wojnowski2025void,
-  author = {Wojnowski, Gustaw Konrad},
+  author = {Wojnowski, Konrad},
   title = {VOID Theory: Finite Mathematics for Anti-Hallucination Neural Networks},
   year = {2025},
   publisher = {GitHub},
@@ -210,3 +289,10 @@ Built this because infinity is a bug, not a feature.
 ## License
 
 MIT — Use freely, but remember: everything costs.
+
+---
+
+**"In the beginning was the Fin, and the Fin was with Void, and the Fin was Void."**
+
+*Probabilistic Mind Consortium, 2025*
+*Built with finite time, verified in Coq, offered to a finite world.*
