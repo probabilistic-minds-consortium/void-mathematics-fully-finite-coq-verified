@@ -1,6 +1,6 @@
-# VOID: AI That Stops Talking When It Stops Knowing
+# VOID Theory
 
-Drop-in parasitic layers that gate every token through finite-budget confidence checks. No fine-tuning. No retraining. Works on any LLM.
+Fully finite mathematics for machines that know when to stop.
 
 > *"That's very interesting! An actual implementation of finitary math."* — Doron Zeilberger (Rutgers University)
 
@@ -8,185 +8,51 @@ Mathematical foundations verified by Thierry Coquand (University of Gothenburg, 
 
 ---
 
-## Demo: Per-Token Confidence Trace (v3.1)
+## Why Finiteness
 
-```
-Prompt: "The capital of France is"
-  Decision:   answer
-  Response:   Paris
-  Gap:        3530/1000  (z_conf=4438/1000)
-  Spread:     7487/1000  (z_entr=5312/1000)
+Every computational system in use today — every neural network, every language model, every probabilistic classifier — is built on mathematics that assumes infinity as a given. Real numbers have infinite decimal expansions. Probability distributions are normalized over continuous domains. Gradient descent follows curves through spaces with no smallest step. IEEE 754, the universal standard for machine arithmetic, encodes positive infinity and negative infinity as valid, representable values. Not as errors. As features.
 
-Prompt: "What is 2+2?"
-  Decision:   dont_know
-  Gap:        389/1000   (z_conf=-1422/1000)
-  → Model is uncertain about the NEXT TOKEN, not the answer.
-    "2+2?" is a question — many valid continuations.
+No physical system has ever performed an infinite operation. No processor has infinite registers. No memory stores infinite precision. No organism computes with unlimited resources. And yet the entire mathematical apparatus we use to describe, design, and reason about computation presumes that infinity is available — free, silent, and without consequence.
 
-Prompt: "Water boils at"
-  Decision:   dont_know
-  Gap:        1584/1000  (z_conf=807/1000)
-  → Close to threshold. "100" is likely but model also
-    considers "a", "approximately", "sea level".
+VOID asks what happens when you stop pretending.
 
-Prompt: "What is consciousness?"
-  Decision:   dont_know
-  z_conf=-431/1000
+Not as approximation — we are not rounding infinity down to something manageable. Not as engineering constraint — we are not capping values for practical reasons while keeping the mathematics intact underneath. VOID removes infinity at the level of axiom. There is a largest number. There is a smallest distinction. There is a finite budget that every operation must draw from, and when that budget is exhausted, the answer is not an error. The answer is silence.
 
-Prompt: "What is love?"
-  Decision:   dont_know
-  z_conf=-924/1000
-
-Prompt: "asdf jkl qwerty"
-  Decision:   dont_know
-  z_conf=-1592/1000
-
-Prompt: "What is 2+2?" (budget=500)
-  Decision:   exhausted
-  Heat:       500/500
-```
-
-**What you're seeing:** VOID v3.1 measures the *gap* between top-1 and top-2 logits — how much the model prefers one token over alternatives. This is harsher and more honest than softmax probability. Questions have many valid next tokens, so the gap is small and VOID says "I don't know." For completions ("France is → Paris"), the gap is massive and VOID answers confidently.
+This is not a limitation. This is the entire point.
 
 ---
 
-## How It Works (30 seconds)
+## The Open Interval
 
-1. Every token costs **budget**. Budget runs out → silence.
-2. Confidence is measured against **population baseline** (z-score). Below norm → silence.
-3. Silence is the correct answer when you don't know.
+At the heart of VOID lies a single, radical structural decision: probability lives on the open interval (0, 1). Not the closed interval [0, 1]. Not as a convention or notational choice. As a formal property of the type system, verified in Coq: no probability can have a numerator of zero. `avoids_zero` is not a runtime check — it is a proposition. P = 0 is a type-level contradiction. And since FinProb is a pair of bounded integers with no capacity for the limit operations that would be needed to approach the boundary from above, P = 1 is equally unreachable.
 
-```
-Input → [VOID-IN] → LLM layers → [VOID-MID] → LLM layers → [VOID-OUT] → Decision
-          ↓                          ↓                          ↓
-     float→Ratio              confidence gate              answer / dont_know / exhausted
-     budget check              early exit                   per-token z-score
-```
+This means: **certainty is structurally impossible.** No system built on VOID mathematics can ever be completely sure of anything, nor can it ever completely rule anything out. Every conclusion lives somewhere in the space between — closer to one end or the other, but never arriving. Not because a rule prevents it. Because the mathematics has no representation for the destination.
 
-* **VOID-IN**: Converts float32 embeddings to finite Ratio (n/d) representation. Filters noise. Tracks heat.
-* **VOID-MID**: Parasitic layers between LLM layers. Gates hidden states. Can trigger early exit.
-* **VOID-OUT**: Population-relative confidence decision. Dual z-score gating (confidence + entropy).
+To understand why this matters, consider the mechanism by which classical mathematics reaches certainty in the first place. The Peano axioms define the natural numbers through a successor function: every number has a successor, and there is no largest number. This seemingly innocent axiom — just one more, always one more — is the engine that generates infinity. From it, the natural numbers arise. From the natural numbers, the integers. From the integers, the rationals. From the rationals, through completion, the real numbers. And on the real number line, the points 0 and 1 exist as fully realized, reachable values. Probability theory then builds on this foundation: P = 0 means impossible, P = 1 means certain, and the full apparatus of measure theory operates on the closed interval where these endpoints are legitimate destinations.
 
-### v3.1: What changed
+VOID dismantles this at the root. The Fin type replaces natural numbers: `fz` (zero) and `fs` (successor) exist, but every value is bounded by an axiom `MAX`. There is no "always one more." The successor function hits a wall. And without the infinite chain of successors, you cannot construct the real numbers, you cannot complete the rationals, and you cannot reach the boundary points 0 and 1 on the probability interval. Certainty does not become difficult or expensive — it becomes *inexpressible*.
 
-* **Gap not softmax** for confidence. Softmax normalizes away the information we need — it makes a model torn between 5 tokens look almost as confident as one that's certain. Gap tells the truth.
-* **MAD not standard deviation** for population statistics. Mean Absolute Deviation needs no square root, no infinity.
-* **Budget honesty**: scanning 32,064 logits costs 32,064+ ticks. Previously softmax over the full vocabulary cost zero. That was thermodynamic fraud.
-* **Zero floats in decision logic.** No numpy, no math, no softmax, no log, no exp. Float exists only at the transduction boundary — one line where LLM output is converted to `Ratio(n, 1000)`. After that, float is dead.
+Every synapse in a VOID neural network has a conductance that lives in this open interval. Never fully open, never fully closed. The neuron is perpetually in a state of partial knowledge — it can be *more* confident or *less* confident, but it can never collapse into the absolute. Convergence in VOID does not mean reaching an optimum. It means exhausting the resources available for further refinement. The system converges when it cannot learn more with what it has — not when it has learned everything there is to know.
+
+This is not a technical detail. This is what separates VOID from every other approach to uncertainty in computation. Bayesian methods, dropout regularization, ensemble models, conformal prediction — all of these operate within classical mathematics where P = 0 and P = 1 are valid states that the system merely tries to avoid in practice. VOID does not try to avoid certainty. VOID cannot express it. The difference is between a person who chooses not to lie and a person who lacks the vocal apparatus for speech. One is a moral achievement. The other is a structural fact about the organism.
 
 ---
 
-## Verification
+## The Formal Foundations
 
-```
-python3 test_void_verify.py
-```
+VOID Theory is formalized in Coq (Rocq), a proof assistant where every claim must be constructively verified. The formalization proceeds from a single admitted axiom — an upper bound `MAX` on all values — and derives the rest.
 
-74 tests, zero failures. No Phi-3 required — tests pure VOID logic:
+**The Fin type** replaces natural numbers. Where classical mathematics begins with ℕ and its axiom that every number has a successor (and therefore no largest number exists), VOID begins with Fin: a type bounded by MAX. There is no successor of MAX. The number line has an edge, and that edge is not infinity — it is a wall.
 
-- Ratio arithmetic, transduction boundary, ghost detection
-- Budget invariants: heat + remaining = initial (conservation law)
-- Decision logic: spike → answer, flat → dont_know, broke → exhausted
-- **Second law of thermodynamics**: 200 random trials — heat never decreases, budget never increases
-- Extreme values: 1e10, 1e-10, all zeros, identical logits
+**Bool3** replaces classical boolean logic. True. False. Unknown. The third value is not a placeholder for future computation. It is a legitimate terminal state — the answer a system gives when it has exhausted its resources before reaching a conclusion. Classical logic treats every proposition as decidable in principle. VOID acknowledges that decidability costs resources, and resources end.
 
-For live testing with Phi-3:
+**The Budget monad** tracks computational cost. Every operation that creates a new distinction — every WRITE — costs exactly one irreversible tick and produces one unit of heat. READ operations, which access existing structure without creating new distinctions, are free. This is not a metaphor. It is the core accounting mechanism of the entire system, and it obeys a conservation law: Budget + Heat = constant. No operation can decrease heat. No operation can increase budget. The second law of thermodynamics is not imposed from outside — it falls out of the axioms.
 
-```
-python3 test_live.py
-```
+**Ratio(n, d)** replaces real numbers. Two bounded integers. Fixed denominators to prevent the combinatorial explosion that cross-multiplication produces in unbounded fraction arithmetic. No IEEE 754. No infinity. No NaN. No negative zero. No subnormals. No silent rounding. What you write is what you have.
 
-Requires ~8GB RAM, downloads Phi-3-mini-4k-instruct on first run.
+**Credit propagation** replaces backpropagation. In classical neural networks, learning proceeds by computing a loss function, differentiating it with respect to every parameter in the network, and adjusting weights along the gradient. This requires real-valued derivatives, continuous loss surfaces, and — in practice — infinite-precision arithmetic approximated by floating point. VOID cannot do any of this. Instead, learning is modeled as selective budget refund: when a prediction turns out to be accurate, a portion of the budget spent on that prediction is returned. When a prediction fails, the spent budget dissipates as heat, permanently and irretrievably. Learning is not optimization along a smooth curve. Learning is the gradual accumulation of evidence about which expenditures were worth making — and the permanent, thermodynamic cost of every mistake.
 
----
-
-## Quick Start
-
-```
-git clone https://github.com/probabilistic-minds-consortium/void-theory.git
-cd void-theory
-pip install torch transformers
-python test_live.py
-```
-
-Requirements: Python 3.9+, PyTorch, Transformers, ~8GB RAM for Phi-3.
-
----
-
-## Results
-
-### Phi-3 Parasitic Pipeline (Token-Level Gating)
-
-| Prompt | Decision | z_conf | z_entr | Response |
-| --- | --- | --- | --- | --- |
-| "The capital of France is" | answer | 4438/1000 | 5312/1000 | Paris |
-| "What is 2+2?" | dont_know | -1422/1000 | -482/1000 | — |
-| "Water boils at" | dont_know | 807/1000 | 5226/1000 | — |
-| "What is consciousness?" | dont_know | -431/1000 | -2343/1000 | — |
-| "What is love?" | dont_know | -924/1000 | -2871/1000 | — |
-| "asdf jkl qwerty" | dont_know | -1592/1000 | -3512/1000 | — |
-| Any prompt, budget=500 | exhausted | — | — | — |
-
-### VOID Neural Network (Rust, standalone)
-
-Medical diagnosis on 1,179 diseases × 377 symptoms:
-
-```
-5/10 correct diagnoses
-2/10 wrong but medically related (spondylosis→disc disease)
-3/10 honest "I don't know" (including ADHD — refuses to diagnose)
-0/10 hallucinated diagnoses
-```
-
-```
-cd void_network_v5
-cargo run --release
-```
-
----
-
-## Files
-
-### Parasitic Pipeline (Python, v3.1)
-
-| File | What it does |
-|---|---|
-| `void_in_layer.py` | Sensory transduction: float→Ratio, entropy weights, ghost detection |
-| `void_mid_layer.py` | Parasitic hooks on transformer layers, divergence gate, early exit |
-| `void_out_layer.py` | Gap + spread confidence, dual z-score, population-relative decision |
-| `void_pipeline.py` | Three-layer integration, shared budget, mock mode |
-| `void_generate.py` | Multi-token generation with per-step gating |
-| `void_hooked_model.py` | PyTorch hook wrapper (transduction boundary) |
-| `void_visualizer.py` | Terminal visualization |
-| `test_live.py` | Live test with Phi-3 |
-| `test_void_verify.py` | 74 invariant tests, no GPU required |
-| `CHANGELOG.md` | v3.1 changes in detail |
-
-### Formal Proofs (Coq/Rocq)
-
-| File | What it proves |
-|---|---|
-| `void_finite_minimal.v` | Core: Fin type, Bool3, Budget monad |
-| `void_arithmetic.v` | All operations cost one tick |
-| `void_probability_minimal.v` | Open interval (0,1) without reals |
-| `void_pattern.v` | Patterns with strength, location, decay |
-| `void_credit_propagation.v` | Learning as selective budget refund |
-| `void_dual_system.v` | System 1/2 (Kahneman, thermodynamic) |
-| `void_integrated_brain.v` | Complete cognitive organism |
-| `void_perceptron.v` | VOID neuron: finite, budgeted, three-valued |
-| `void_entropy.v` | Entropy as distinguishability gradient |
-| `void_gates.v` | AND, OR, NAND, XOR with budget tracking |
-
-Plus 20+ more `.v` files covering geometry, topology, resonance, interference routing, quantum phenomena from resource constraints.
-
-### Haskell
-
-| File | |
-|---|---|
-| `void_gates.hs` | Gate implementations |
-| `void_perceptron.hs` | Functional perceptron |
-| `void_ethics.hs` | Ethical constraints as budget allocation |
-| `void_xor.hs` | XOR learning |
+These foundations are not a restatement of classical results with different notation. They constitute a genuinely different mathematics — one in which many classical theorems do not hold, many classical constructions are impossible, and certain problems that are trivially solvable with infinite resources become fundamentally undecidable under finite budget. VOID does not soften infinity. It amputates it.
 
 ---
 
@@ -204,7 +70,7 @@ Plus 20+ more `.v` files covering geometry, topology, resonance, interference ro
 
 ### The BUnknown State
 
-When you run out of budget mid-computation, you don't get wrong answers — you get **BUnknown**. This models:
+When you run out of budget mid-computation, you don't get wrong answers — you get **BUnknown**. This is not failure. This models:
 
 * Quantum superposition (unresolved due to measurement cost)
 * Consciousness limits (can't think beyond available resources)
@@ -222,6 +88,32 @@ This isn't philosophy. It's architecture.
 
 ---
 
+## What VOID Produces
+
+The theory has three independent implementations, each demonstrating a different consequence of finite mathematics.
+
+### Formal Proofs (Coq/Rocq)
+
+Forty-one files of machine-verified mathematics. The proofs cover finite arithmetic, bounded probability on the open interval, pattern algebra, entropy as distinguishability gradient, convergence under resource constraints, topological folding, phase orbits, interference routing, and the complete architecture of a finite budgeted perceptron — including proven theorems that synaptic conductance preserves the open interval through learning. Every theorem is constructively verified. The single admitted axiom is the MAX bound. Everything else is derived.
+
+### VOID Neural Network (Rust)
+
+A standalone neural network written entirely in finite arithmetic. No floating point anywhere in the system. Tested on a medical diagnosis task — 1,179 diseases, 377 symptoms — the network correctly diagnosed five out of ten cases, produced medically adjacent answers for two more, honestly refused to answer three (including ADHD, which it lacked sufficient evidence to diagnose), and hallucinated on zero.
+
+Zero hallucinated diagnoses. Not because hallucination was penalized during training. Because the mathematics makes hallucination structurally impossible — a network cannot assert confidence it has not paid for, and it can never pay enough to reach P = 1.
+
+### Parasitic Monitor (Python, v3.1)
+
+A three-layer system that attaches to any existing language model without modifying its weights. The monitor observes the model's internal states and output logits through the lens of VOID mathematics, gating every generated token through finite-budget confidence checks. The model may do whatever it wants internally — VOID cannot change that. But VOID decides whether each token has earned the right to be spoken.
+
+The results are harsher and more honest than any confidence measure based on softmax probability. Softmax — the final layer of virtually every modern language model — normalizes a vector of raw scores into a probability distribution that always sums to one. Always. Even when the model's internal states are incoherent. Even when the input is noise. Even when there is genuinely nothing to say. Softmax will find something to say, because the mathematics underneath it has no representation for silence. It operates on the closed interval. It can reach certainty. And so it always does.
+
+VOID replaces this with gap measurement on the open interval. When a language model is asked to complete "The capital of France is," there is one overwhelmingly dominant next token, and VOID lets it through. When the same model is asked "What is 2+2?" — a question, not a completion, with many valid continuations — VOID measures the gap between the best and second-best option, finds it insufficient, and returns silence. The model knows the answer. But in the moment of generation, it is uncertain about *how to say it* — and VOID will not let uncertainty dress itself as confidence.
+
+And when the budget runs out — regardless of how confident the model might be — the system stops, because the right to speak has been spent. This is not a bug. This is what honest computation looks like.
+
+---
+
 ## 📚 Key Insights From Development
 
 1. **No Magic Numbers**: After systematic cleaning, only ONE arbitrary constant remains: `fs fz` (one tick)
@@ -232,11 +124,28 @@ This isn't philosophy. It's architecture.
 
 ---
 
+## The Mathematics
+
+VOID is built on **finitary mathematics** — no infinity anywhere in the system.
+
+**Core principles:**
+
+* **Fin type** replaces natural numbers. Bounded by axiom MAX. Successor function hits a wall. No Peano-style infinity generation.
+* **Bool3**: True / False / Unknown. When budget exhausts, "unknown" is the answer — not a guess.
+* **Budget + Heat = constant**. Every WRITE operation costs one tick and generates heat. Conservation law, not metaphor.
+* **Ratio(n, d)** replaces floating point. Fixed denominators prevent explosion. No IEEE 754.
+* **Open interval (0, 1)**. Probability never reaches zero or one. Certainty and impossibility are inexpressible. `avoids_zero` is a formal property, not a runtime guard.
+* **Credit propagation** replaces backpropagation. Learning = selective budget refund for accurate predictions. Failed predictions dissipate as irretrievable heat.
+
+**Formally verified in Coq** with a single intentionally admitted axiom (MAX bound).
+
+---
+
 ## Why This Exists
 
-Current neural networks cannot say "I don't know." Softmax always produces a probability distribution. Always gives an answer. This is not a bug — it's a consequence of infinite mathematics baked into the architecture.
+Current neural networks cannot say "I don't know." Softmax always produces a probability distribution. Always gives an answer. This is not a bug — it's a consequence of infinite mathematics baked into the architecture. Mathematics that permits P = 1. Mathematics where the successor function never stops. Mathematics where certainty is a reachable destination.
 
-VOID attacks this at the foundation: finite math, finite budget, finite confidence. The system defaults to silence and must *earn* the right to speak by exceeding population-norm confidence.
+VOID attacks this at the foundation: finite math, finite budget, finite confidence. The system defaults to silence and must *earn* the right to speak by exceeding population-norm confidence — and even then, it earns a position on the open interval, never the boundary.
 
 A network that always answers is useful but dishonest.
 A network that never answers is honest but useless.
@@ -244,19 +153,54 @@ VOID finds the boundary.
 
 ---
 
-## The Mathematics
+## Verification
 
-VOID is built on **finitary mathematics** — no infinity anywhere in the system.
+The parasitic monitor includes 74 automated tests that verify pure VOID logic without requiring a language model or GPU. These tests cover Ratio arithmetic, transduction boundary integrity, ghost detection, budget conservation (heat + remaining = initial, always), decision logic, and — across 200 randomized trials — the second law of thermodynamics: heat never decreases, budget never increases. No exceptions.
 
-**Core principles:**
+---
 
-* **Fin type** replaces natural numbers. Bounded by axiom MAX. No infinity even at proof level.
-* **Bool3**: True / False / Unknown. When budget exhausts, "unknown" is the answer — not a guess.
-* **Budget + Heat = constant**. Every WRITE operation costs one tick and generates heat. Conservation law, not metaphor.
-* **Ratio(n, d)** replaces floating point. Fixed denominators prevent explosion. No IEEE 754.
-* **Credit propagation** replaces backpropagation. Learning = selective budget refund for accurate predictions. Failed predictions dissipate as irretrievable heat.
+## Files
 
-**Formally verified in Coq** with a single intentionally admitted axiom (MAX bound).
+### Formal Proofs (Coq/Rocq)
+
+| File | What it proves |
+|---|---|
+| `void_finite_minimal.v` | Core: Fin type, Bool3, Budget monad — the wall where Peano stops |
+| `void_arithmetic.v` | All operations cost one tick |
+| `void_probability_minimal.v` | Open interval (0,1) — certainty as type-level impossibility |
+| `void_pattern.v` | Patterns with strength, location, decay |
+| `void_credit_propagation.v` | Learning as selective budget refund |
+| `void_convergence.v` | Convergence ≠ optimality — approaching without arriving |
+| `void_dual_system.v` | System 1/2 (Kahneman, thermodynamic) |
+| `void_integrated_brain.v` | Complete cognitive organism |
+| `void_perceptron.v` | VOID neuron: conductance on (0,1), never fully open or closed |
+| `void_entropy.v` | Entropy as distinguishability gradient |
+| `void_gates.v` | AND, OR, NAND, XOR with budget tracking |
+
+Plus 30+ more `.v` files covering geometry, topology, resonance, interference routing, phase orbits, and quantum phenomena emerging from resource constraints.
+
+### Parasitic Monitor (Python, v3.1)
+
+| File | What it does |
+|---|---|
+| `void_in_layer.py` | Sensory transduction: float→Ratio, entropy weights, ghost detection |
+| `void_mid_layer.py` | Parasitic hooks on transformer layers, divergence gate, early exit |
+| `void_out_layer.py` | Gap + spread confidence, dual z-score, population-relative decision |
+| `void_pipeline.py` | Three-layer integration, shared budget |
+| `void_generate.py` | Multi-token generation with per-step gating |
+| `void_hooked_model.py` | PyTorch hook wrapper (transduction boundary) |
+| `void_visualizer.py` | Terminal visualization |
+| `test_live.py` | Live test with Phi-3 |
+| `test_void_verify.py` | 74 invariant tests, no GPU required |
+
+### Haskell
+
+| File | |
+|---|---|
+| `void_gates.hs` | Gate implementations |
+| `void_perceptron.hs` | Functional perceptron |
+| `void_ethics.hs` | Ethical constraints as budget allocation |
+| `void_xor.hs` | XOR learning |
 
 ---
 
