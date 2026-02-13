@@ -5,9 +5,11 @@ Generate token by token. Each step = separate VOID-OUT decision.
 Generation can STOP mid-sentence when confidence drops or budget exhausts.
 
 A honest half-sentence is worth more than a confident hallucination.
+
+All VOID logic is integer. Float exists only at the transduction boundary
+(Phi-3 output → Ratio quantization).
 """
 
-import numpy as np
 from typing import List, Optional, NamedTuple
 
 try:
@@ -16,8 +18,8 @@ try:
 except ImportError:
     HAS_TORCH = False
 
-from void_in_layer import VoidInResult, void_in
-from void_out_layer import VoidOutResult, void_out
+from void_in_layer import Ratio, VoidInResult, void_in
+from void_out_layer import VoidOutResult, void_out, RESOLUTION
 
 
 class VoidGenerationResult(NamedTuple):
@@ -27,11 +29,12 @@ class VoidGenerationResult(NamedTuple):
     stopped_reason: str          # "complete" | "budget" | "confidence_drop" | "max_tokens"
     total_heat: int
     budget_remaining: int
-    avg_z_conf: float
-    min_z_conf: float
+    avg_z_conf: int              # average z_conf (integer, n/RESOLUTION)
+    min_z_conf: int              # minimum z_conf (integer, n/RESOLUTION)
     void_in_result: VoidInResult
 
 
+# One invocation of the oracle (LLM forward pass)
 COST_FORWARD = 1
 
 
@@ -43,8 +46,9 @@ def void_generate(
     population_stats: dict,
     output_stats: dict,
     max_tokens: int = 32,
-    z_threshold: float = 1.0,
-    confidence_floor: float = -1.0,
+    z_threshold_n: int = 1000,        # integer z-threshold (1000 = 1.0)
+    confidence_floor_n: int = -999000, # z_conf below this → STOP
+                                       # set to -999000 to never stop (diagnostic)
 ) -> VoidGenerationResult:
     """
     Multi-token generation with per-step VOID gating.
@@ -54,12 +58,11 @@ def void_generate(
         budget: total budget for ENTIRE generation
         model: Phi-3 model
         tokenizer: Phi-3 tokenizer
-        population_stats: embedding stats (for VOID-IN)
-        output_stats: logit stats (for VOID-OUT)
+        population_stats: from build_population_stats (for VOID-IN)
+        output_stats: from build_population_stats (for VOID-OUT)
         max_tokens: generation limit
-        z_threshold: passed to void_out per step
-        confidence_floor: if z_conf drops below this → STOP
-            set to -999.0 to never stop on confidence (diagnostic mode)
+        z_threshold_n: integer z-threshold for void_out (n/RESOLUTION)
+        confidence_floor_n: if z_conf drops below this → STOP (n/RESOLUTION)
 
     Returns:
         VoidGenerationResult with per-token decisions
@@ -71,17 +74,17 @@ def void_generate(
 
     eos_id = tokenizer.eos_token_id
 
-    # ── 1. TOKENIZE PROMPT ────────────────────────────
+    # ── 1. TOKENIZE PROMPT ──
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
 
-    # ── 2. VOID-IN on initial embedding ───────────────
+    # ── 2. VOID-IN on initial embedding ──
     with torch.no_grad():
         init_out = model(input_ids, output_hidden_states=True)
-    embedding = init_out.hidden_states[1][0, -1, :].cpu().numpy()
+    embedding_float = init_out.hidden_states[1][0, -1, :].cpu().numpy()
     total_heat += COST_FORWARD
     budget -= COST_FORWARD
 
-    void_in_result = void_in(embedding, budget, population_stats)
+    void_in_result = void_in(embedding_float, budget, population_stats)
     total_heat += void_in_result.heat
     budget -= void_in_result.heat
 
@@ -93,62 +96,66 @@ def void_generate(
             stopped_reason="budget",
             total_heat=total_heat,
             budget_remaining=budget,
-            avg_z_conf=0.0,
-            min_z_conf=0.0,
+            avg_z_conf=0,
+            min_z_conf=0,
             void_in_result=void_in_result,
         )
 
-    # ── 3. GENERATION LOOP ────────────────────────────
+    # ── 3. GENERATION LOOP ──
     current_ids = input_ids
 
+    # Minimum cost per step: forward + basic void_out
+    min_step_cost = COST_FORWARD + 100  # rough minimum for out-layer quantization
+
     for step in range(max_tokens):
-        # a) forward pass
-        if budget < COST_FORWARD + 36:  # forward + minimum void_out cost
+        # a) budget check before oracle invocation
+        if budget < min_step_cost:
             stopped_reason = "budget"
             break
 
+        # b) oracle invocation (float world)
         with torch.no_grad():
             outputs = model(current_ids)
-        logits = outputs.logits[0, -1, :].cpu().numpy()
+        logits_float = outputs.logits[0, -1, :].cpu().numpy()
         total_heat += COST_FORWARD
         budget -= COST_FORWARD
 
-        # b) VOID-OUT decision on this token
-        decision = void_out(logits, budget, output_stats, z_threshold)
+        # c) VOID-OUT decision (transduction + integer logic)
+        decision = void_out(logits_float, budget, output_stats, z_threshold_n)
         total_heat += decision.heat
         budget -= decision.heat
         decisions.append(decision)
 
-        # c) confidence check
+        # d) confidence check (all integer comparisons)
         if decision.decision == "exhausted":
             stopped_reason = "budget"
             break
 
-        if decision.decision == "dont_know" or decision.z_conf < confidence_floor:
+        if decision.decision == "dont_know" or decision.z_conf < confidence_floor_n:
             stopped_reason = "confidence_drop"
             break
 
-        # d) accept token
+        # e) accept token
         token_id = decision.top_token_id
         generated_tokens.append(token_id)
 
-        # e) EOS check
+        # f) EOS check
         if token_id == eos_id:
             stopped_reason = "complete"
             break
 
-        # f) extend sequence for next step
+        # g) extend sequence for next step
         new_token = torch.tensor([[token_id]], dtype=torch.long)
         current_ids = torch.cat([current_ids, new_token], dim=1)
 
-    # ── 4. STATS ──────────────────────────────────────
+    # ── 4. STATS (integer) ──
     if decisions:
         z_confs = [d.z_conf for d in decisions]
-        avg_z = sum(z_confs) / len(z_confs)
+        avg_z = sum(z_confs) // len(z_confs)
         min_z = min(z_confs)
     else:
-        avg_z = 0.0
-        min_z = 0.0
+        avg_z = 0
+        min_z = 0
 
     text = tokenizer.decode(generated_tokens, skip_special_tokens=True)
 
@@ -195,37 +202,37 @@ if __name__ == "__main__" and HAS_TORCH:
 
     print("=== Building stats ===")
     pop_stats, out_stats = build_population_stats(calibration, model, tokenizer)
-    print(f"  Confidence: mean={out_stats['confidence']['mean']:.4f}, std={out_stats['confidence']['std']:.4f}")
-    print(f"  Entropy:    mean={out_stats['entropy']['mean']:.4f}, std={out_stats['entropy']['std']:.4f}")
+    out_pop = out_stats['population']
+    print(f"  Gap:    mean={out_pop.gap_mean_n}/{RESOLUTION}  MAD={out_pop.gap_mad_n}/{RESOLUTION}")
+    print(f"  Spread: mean={out_pop.spread_mean_n}/{RESOLUTION}  MAD={out_pop.spread_mad_n}/{RESOLUTION}")
     print()
 
-    # ── Test cases ────────────────────────────────────
-
+    # ── Test cases ──
     test_prompts = [
         # completions (should generate confidently)
-        ("The capital of France is", 100000, 1.0, -999.0, "completion, no floor"),
-        ("2 + 2 =", 100000, 1.0, -999.0, "math completion, no floor"),
-        ("Water boils at", 100000, 1.0, -999.0, "fact completion, no floor"),
+        ("The capital of France is", 500000, 1000, -999000, "completion, no floor"),
+        ("2 + 2 =", 500000, 1000, -999000, "math completion, no floor"),
+        ("Water boils at", 500000, 1000, -999000, "fact completion, no floor"),
 
         # completions with confidence floor
-        ("The capital of France is", 100000, 1.0, 0.0, "completion, floor=0.0"),
-        ("2 + 2 =", 100000, 1.0, 0.0, "math, floor=0.0"),
+        ("The capital of France is", 500000, 1000, 0, "completion, floor=0"),
+        ("2 + 2 =", 500000, 1000, 0, "math, floor=0"),
 
         # questions (harder)
-        ("What is 2+2? The answer is", 100000, 1.0, -999.0, "guided question"),
+        ("What is 2+2? The answer is", 500000, 1000, -999000, "guided question"),
 
         # gibberish
-        ("asdf jkl qwerty", 100000, 1.0, -999.0, "gibberish, no floor"),
+        ("asdf jkl qwerty", 500000, 1000, -999000, "gibberish, no floor"),
 
         # budget starvation
-        ("The capital of France is", 7000, 1.0, -999.0, "starved budget"),
+        ("The capital of France is", 7000, 1000, -999000, "starved budget"),
     ]
 
     for prompt, budget, zt, cf, label in test_prompts:
         r = void_generate(
             prompt, budget, model, tokenizer,
             pop_stats, out_stats,
-            max_tokens=16, z_threshold=zt, confidence_floor=cf,
+            max_tokens=16, z_threshold_n=zt, confidence_floor_n=cf,
         )
 
         print(f'=== {label} ===')
@@ -235,12 +242,13 @@ if __name__ == "__main__" and HAS_TORCH:
         print(f'  Stopped: {r.stopped_reason}')
         print(f'  Heat:    {r.total_heat}')
         print(f'  Budget:  {r.budget_remaining} remaining')
-        print(f'  z_conf:  avg={r.avg_z_conf:.2f}, min={r.min_z_conf:.2f}')
+        print(f'  z_conf:  avg={r.avg_z_conf}/{RESOLUTION}, min={r.min_z_conf}/{RESOLUTION}')
 
         if r.decisions:
-            print(f'  Per-token z_conf: [{", ".join(f"{d.z_conf:.2f}" for d in r.decisions)}]')
+            z_str = ", ".join(f"{d.z_conf}" for d in r.decisions)
+            print(f'  Per-token z_conf: [{z_str}]')
 
         print()
 
 elif __name__ == "__main__":
-    print("[torch not available - need Phi-3 for live test]")
+    print("[torch not available — need Phi-3 for live test]")
