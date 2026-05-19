@@ -146,22 +146,23 @@ Local Definition f16' := fs (fs (fs (fs (fs (fs (fs (fs (fs (fs (fs (fs (fs (fs 
 (* ================================================================ *)
 
 (* 1D membrane — zywa, budget=16, filter_center=[(1,4)], radius=2, capacity=4.
-   Atomowa: mem_inner = nil. *)
+   Atomowa: mem_inner = nil. mk_pattern_from_pair lifts the legacy
+   (value, budget) pair into the unified Pattern record. *)
 Definition test_membrane_1 : Membrane :=
-  mkMembrane ((f1, f4') :: nil) f2 f4' f16' nil.
+  mkMembrane (mk_pattern_from_pair f1 f4' :: nil) f2 f4' f16' nil.
 
 (* 1D martwa — ten sam ksztalt, budget=0. Atomowa. *)
 Definition test_membrane_dead : Membrane :=
-  mkMembrane ((f1, f4') :: nil) f2 f4' fz nil.
+  mkMembrane (mk_pattern_from_pair f1 f4' :: nil) f2 f4' fz nil.
 
 (* Zrodlo dopasowane: geometria podobna do test_membrane_1, duzy budget. Atomowa. *)
 Definition test_source_match : Membrane :=
-  mkMembrane ((f2, f4') :: nil) f2 f4' f4' nil.
+  mkMembrane (mk_pattern_from_pair f2 f4' :: nil) f2 f4' f4' nil.
   (* center=[(2,4)] — odleglosc 1 od test_membrane_1 przy tym samym budzecie *)
 
 (* Zrodlo niedopasowane: odlegla geometria. Atomowa. *)
 Definition test_source_nomatch : Membrane :=
-  mkMembrane ((f8', f4') :: nil) f2 f4' f4' nil.
+  mkMembrane (mk_pattern_from_pair f8' f4' :: nil) f2 f4' f4' nil.
 
 (* Witnesses *)
 Eval compute in intake test_membrane_1 test_source_match.
@@ -1214,9 +1215,20 @@ Fixpoint filter_subset_spur (xs ys : list (Fin * Fin)) (b : Budget)
 (* (2). No free lunch: kazdy tick budzetu m1 konsumowany pokrywa     *)
 (* tick Spuren emitowanych. Spur conservation gwarantowane.           *)
 
+(* Pattern -> (Fin * Fin) projection: (location, numerator-of-strength).      *)
+(* The strength denominator is dropped here because filter_subset_spur and    *)
+(* pair_in_list_spur work on raw 2D pairs — the denominator carries           *)
+(* probabilistic interpretation handled by higher layers, not by subset       *)
+(* containment. This projection is the bridge from the unified Pattern record *)
+(* into the legacy (value, budget) coordinate space these functions consume.  *)
+Definition pattern_to_pair (p : Pattern) : Fin * Fin :=
+  (location p, fst (strength p)).
+
 Definition filter_implies_spur (m1 m2 : Membrane) (b : Budget)
   : (Bool3 * Budget * Spuren) :=
-  match filter_subset_spur (mem_filter_center m2) (mem_filter_center m1) b with
+  match filter_subset_spur
+          (map pattern_to_pair (mem_filter_center m2))
+          (map pattern_to_pair (mem_filter_center m1)) b with
   | (BTrue, b1, h1) =>
       match le_fin_b3 (mem_filter_radius m2) (mem_filter_radius m1) b1 with
       | (r, b2, h2) => (r, b2, add_spur h1 h2)
@@ -1417,15 +1429,15 @@ Qed.
 
 (* Kandydat z filterem identycznym do test_membrane_1 — T2 ⊆ T1. *)
 Definition test_inner_fits : Membrane :=
-  mkMembrane ((f1, f4') :: nil) f1 f4' f2 nil.
+  mkMembrane (mk_pattern_from_pair f1 f4' :: nil) f1 f4' f2 nil.
 
 (* Kandydat z innym filterem — nie implied. *)
 Definition test_inner_mismatch : Membrane :=
-  mkMembrane ((f2, f1) :: nil) f1 f4' f2 nil.
+  mkMembrane (mk_pattern_from_pair f2 f1 :: nil) f1 f4' f2 nil.
 
 (* Dead outer test. *)
 Definition test_membrane_1_dead : Membrane :=
-  mkMembrane ((f1, f4') :: nil) f2 f4' fz nil.
+  mkMembrane (mk_pattern_from_pair f1 f4' :: nil) f2 f4' fz nil.
 
 (* BTrue embed: filter matches, m2 embedded. *)
 Eval compute in embed test_membrane_1 test_inner_fits.
@@ -1586,7 +1598,9 @@ Lemma filter_implies_spur_conservation : forall m1 m2 b r b' h,
 Proof.
   intros m1 m2 b r b' h Heq.
   unfold filter_implies_spur in Heq.
-  destruct (filter_subset_spur (mem_filter_center m2) (mem_filter_center m1) b)
+  destruct (filter_subset_spur
+              (map pattern_to_pair (mem_filter_center m2))
+              (map pattern_to_pair (mem_filter_center m1)) b)
     as [[r1 b1] h1] eqn:Hsub.
   destruct r1.
   - (* BTrue: continue with radius check *)
@@ -2876,8 +2890,18 @@ Qed.
 (* T2 ⊆ T1 jako Prop: kazdy punkt filtra m2 jest punktem filtra m1, *)
 (* oraz tolerancja m2 nie szersza niz m1.                          *)
 
+(* Subset at the projection level: every (location, numerator-of-strength)   *)
+(* pair drawn from m2's filter is also drawn from m1's filter, plus the      *)
+(* tolerance condition on radii. After the Pattern unification this is the  *)
+(* statement that the computational filter_subset_spur (which lives on raw  *)
+(* (Fin × Fin) pairs) actually witnesses; lifting it to full-Pattern subset *)
+(* would require pattern_to_pair to be injective, which the strength        *)
+(* denominator field deliberately breaks for the sake of higher-layer       *)
+(* probabilistic interpretation.                                             *)
 Definition filter_subset_prop (m1 m2 : Membrane) : Prop :=
-  (forall p, In p (mem_filter_center m2) -> In p (mem_filter_center m1))
+  (forall p,
+     In p (map pattern_to_pair (mem_filter_center m2)) ->
+     In p (map pattern_to_pair (mem_filter_center m1)))
   /\ le_struct (mem_filter_radius m2) (mem_filter_radius m1) = true.
 
 (* ---- GLOWNY BRIDGE: computational BTrue -> Prop-level subset ---- *)
@@ -2889,8 +2913,9 @@ Theorem filter_implies_spur_btrue_bridge :
 Proof.
   intros m1 m2 b b' h Hfilt.
   unfold filter_implies_spur in Hfilt.
-  destruct (filter_subset_spur (mem_filter_center m2)
-                               (mem_filter_center m1) b)
+  destruct (filter_subset_spur
+              (map pattern_to_pair (mem_filter_center m2))
+              (map pattern_to_pair (mem_filter_center m1)) b)
     as [[r1 b1] h1] eqn:Hsub.
   destruct r1.
   - destruct (le_fin_b3 (mem_filter_radius m2)
@@ -3295,3 +3320,383 @@ Qed.
 (* embed implikuje Prop-poziomowa kompatybilnosc m2 z outer'em m1   *)
 (* i z kazdym inner'em m1. Compound jest caly spojny po operacji.   *)
 (* ================================================================ *)
+
+(* ================================================================ *)
+(* PART 23: INTAKE_LEARNING — kontury uczą się przez spotkania      *)
+(* ================================================================ *)
+(* Rozszerzenie intake o uczenie. Po BTrue, oprócz transferu        *)
+(* budżetu, kontur m1 przesuwa swoje centrum o jeden tick w stronę *)
+(* centrum m2. Promień, pojemność i sub-kontury zostają niezmienne  *)
+(* — tylko centrum dryfuje. To jest finitystyczna wersja Hebbiana:  *)
+(* powtarzające się spotkania prowadzą m1 ku prototypowi m2.         *)
+(*                                                                    *)
+(* BFalse i BUnknown zachowują się dokładnie jak intake — odmowa     *)
+(* lub cisza nie powoduje uczenia. Tylko rozpoznanie przekłada się  *)
+(* na ruch konturu.                                                   *)
+(* ================================================================ *)
+
+(* step_toward a b: jeden tick a w stronę b w przestrzeni Fin.       *)
+(* a < b: a + 1; a > b: a - 1; a = b: a.                              *)
+(* Czysto strukturalna funkcja, bez budżetu — wbudowywanie kosztu   *)
+(* odbywa się w intake_learning, nie tu.                              *)
+Fixpoint step_toward (a b : Fin) : Fin :=
+  match a, b with
+  | fz, fz => fz
+  | fz, fs _ => fs fz
+  | fs a', fz => a'
+  | fs a', fs b' => fs (step_toward a' b')
+  end.
+
+(* step_pattern_toward: przesunięcie pojedynczego Pattern.           *)
+(* Tylko location się rusza; strength zachowana — siła sygnału     *)
+(* nie zmienia się przez ruch konturu.                                *)
+Definition step_pattern_toward (p target : Pattern) : Pattern :=
+  mkPattern (step_toward (location p) (location target)) (strength p).
+
+(* step_center_toward: przesunięcie pierwszego Pattern w liście.     *)
+(* Jeśli source pusta — pusta. Jeśli target pusta — source bez       *)
+(* zmian. W przeciwnym razie pierwszy Pattern source idzie krok      *)
+(* w stronę pierwszego Pattern target; reszta source bez zmian.      *)
+Definition step_center_toward
+  (source target : list Pattern) : list Pattern :=
+  match source, target with
+  | nil, _ => nil
+  | _, nil => source
+  | sp :: srest, tp :: _ => step_pattern_toward sp tp :: srest
+  end.
+
+(* intake_learning: jak intake, ale w branchu BTrue centrum m1       *)
+(* przesuwa się jeden tick w stronę centrum m2.                       *)
+Definition intake_learning (m1 m2 : Membrane)
+  : (Fin * Membrane * Membrane * Spuren) :=
+  match recognize (mem_filter_center m2) (membrane_as_figure m1) (mem_budget m1) with
+  | (BTrue, b1, h_rec) =>
+      match min_fin_dec (mem_budget m2) (mem_capacity m1) b1 with
+      | (admitted, _, b1_min, h_min) =>
+          match assimilate_b_spur admitted b1_min with
+          | (b1_final, h_assim) =>
+              match spend_aux (mem_budget m2) admitted with
+              | (b2_final, h_spend) =>
+                  let new_center := step_center_toward
+                                       (mem_filter_center m1)
+                                       (mem_filter_center m2) in
+                  let m1' := mkMembrane new_center
+                                        (mem_filter_radius m1)
+                                        (mem_capacity m1)
+                                        b1_final
+                                        (mem_inner m1) in
+                  let m2' := mkMembrane (mem_filter_center m2)
+                                        (mem_filter_radius m2)
+                                        (mem_capacity m2)
+                                        b2_final
+                                        (mem_inner m2) in
+                  (admitted, m1', m2',
+                   add_spur (add_spur (add_spur h_rec h_min) h_assim) h_spend)
+              end
+          end
+      end
+  | (BFalse, b1, h_rec) =>
+      let m1' := mkMembrane (mem_filter_center m1)
+                            (mem_filter_radius m1)
+                            (mem_capacity m1)
+                            b1
+                            (mem_inner m1) in
+      (fz, m1', m2, h_rec)
+  | (BUnknown, b1, h_rec) =>
+      let m1' := mkMembrane (mem_filter_center m1)
+                            (mem_filter_radius m1)
+                            (mem_capacity m1)
+                            b1
+                            (mem_inner m1) in
+      (fz, m1', m2, h_rec)
+  end.
+
+(* ---- Twierdzenia preserves: co intake_learning NIE rusza ---- *)
+
+(* Promień m1 niezmienny pod intake_learning. *)
+Theorem intake_learning_preserves_m1_radius :
+  forall m1 m2 adm m1' m2' h,
+  intake_learning m1 m2 = (adm, m1', m2', h) ->
+  mem_filter_radius m1' = mem_filter_radius m1.
+Proof.
+  intros m1 m2 adm m1' m2' h Hil.
+  unfold intake_learning in Hil.
+  destruct (recognize (mem_filter_center m2) (membrane_as_figure m1) (mem_budget m1))
+    as [[res b1] h_rec] eqn:Hrec.
+  destruct res.
+  - destruct (min_fin_dec (mem_budget m2) (mem_capacity m1) b1)
+      as [[[adm0 flag] b1_min] h_min] eqn:Hmin.
+    destruct (assimilate_b_spur adm0 b1_min) as [b1_final h_assim] eqn:Hassim.
+    destruct (spend_aux (mem_budget m2) adm0) as [b2_final h_spend] eqn:Hspend.
+    inversion Hil; subst. simpl. reflexivity.
+  - inversion Hil; subst. simpl. reflexivity.
+  - inversion Hil; subst. simpl. reflexivity.
+Qed.
+
+(* Pojemność m1 niezmienna pod intake_learning. *)
+Theorem intake_learning_preserves_m1_capacity :
+  forall m1 m2 adm m1' m2' h,
+  intake_learning m1 m2 = (adm, m1', m2', h) ->
+  mem_capacity m1' = mem_capacity m1.
+Proof.
+  intros m1 m2 adm m1' m2' h Hil.
+  unfold intake_learning in Hil.
+  destruct (recognize (mem_filter_center m2) (membrane_as_figure m1) (mem_budget m1))
+    as [[res b1] h_rec] eqn:Hrec.
+  destruct res.
+  - destruct (min_fin_dec (mem_budget m2) (mem_capacity m1) b1)
+      as [[[adm0 flag] b1_min] h_min] eqn:Hmin.
+    destruct (assimilate_b_spur adm0 b1_min) as [b1_final h_assim] eqn:Hassim.
+    destruct (spend_aux (mem_budget m2) adm0) as [b2_final h_spend] eqn:Hspend.
+    inversion Hil; subst. simpl. reflexivity.
+  - inversion Hil; subst. simpl. reflexivity.
+  - inversion Hil; subst. simpl. reflexivity.
+Qed.
+
+(* Sub-kontury m1 niezmienne pod intake_learning. *)
+Theorem intake_learning_preserves_m1_inner :
+  forall m1 m2 adm m1' m2' h,
+  intake_learning m1 m2 = (adm, m1', m2', h) ->
+  mem_inner m1' = mem_inner m1.
+Proof.
+  intros m1 m2 adm m1' m2' h Hil.
+  unfold intake_learning in Hil.
+  destruct (recognize (mem_filter_center m2) (membrane_as_figure m1) (mem_budget m1))
+    as [[res b1] h_rec] eqn:Hrec.
+  destruct res.
+  - destruct (min_fin_dec (mem_budget m2) (mem_capacity m1) b1)
+      as [[[adm0 flag] b1_min] h_min] eqn:Hmin.
+    destruct (assimilate_b_spur adm0 b1_min) as [b1_final h_assim] eqn:Hassim.
+    destruct (spend_aux (mem_budget m2) adm0) as [b2_final h_spend] eqn:Hspend.
+    inversion Hil; subst. simpl. reflexivity.
+  - inversion Hil; subst. simpl. reflexivity.
+  - inversion Hil; subst. simpl. reflexivity.
+Qed.
+
+(* m2 jako całość: geometria niezmieniona przez intake_learning      *)
+(* (m2 jest przedmiotem obserwacji, jej kontur się nie uczy).        *)
+Theorem intake_learning_preserves_m2_center :
+  forall m1 m2 adm m1' m2' h,
+  intake_learning m1 m2 = (adm, m1', m2', h) ->
+  mem_filter_center m2' = mem_filter_center m2.
+Proof.
+  intros m1 m2 adm m1' m2' h Hil.
+  unfold intake_learning in Hil.
+  destruct (recognize (mem_filter_center m2) (membrane_as_figure m1) (mem_budget m1))
+    as [[res b1] h_rec] eqn:Hrec.
+  destruct res.
+  - destruct (min_fin_dec (mem_budget m2) (mem_capacity m1) b1)
+      as [[[adm0 flag] b1_min] h_min] eqn:Hmin.
+    destruct (assimilate_b_spur adm0 b1_min) as [b1_final h_assim] eqn:Hassim.
+    destruct (spend_aux (mem_budget m2) adm0) as [b2_final h_spend] eqn:Hspend.
+    inversion Hil; subst. simpl. reflexivity.
+  - inversion Hil; subst. reflexivity.
+  - inversion Hil; subst. reflexivity.
+Qed.
+
+(* W branchu odmowy/ciszy centrum m1 też zostaje niezmienne          *)
+(* — uczenie wymaga rozpoznania, nie odmowy.                          *)
+
+Theorem intake_learning_reject_preserves_m1_center :
+  forall m1 m2 adm m1' m2' h b1 h_rec,
+  recognize (mem_filter_center m2) (membrane_as_figure m1) (mem_budget m1)
+    = (BFalse, b1, h_rec) ->
+  intake_learning m1 m2 = (adm, m1', m2', h) ->
+  mem_filter_center m1' = mem_filter_center m1.
+Proof.
+  intros m1 m2 adm m1' m2' h b1 h_rec Hrec Hil.
+  unfold intake_learning in Hil.
+  rewrite Hrec in Hil.
+  inversion Hil; subst. simpl. reflexivity.
+Qed.
+
+Theorem intake_learning_unknown_preserves_m1_center :
+  forall m1 m2 adm m1' m2' h b1 h_rec,
+  recognize (mem_filter_center m2) (membrane_as_figure m1) (mem_budget m1)
+    = (BUnknown, b1, h_rec) ->
+  intake_learning m1 m2 = (adm, m1', m2', h) ->
+  mem_filter_center m1' = mem_filter_center m1.
+Proof.
+  intros m1 m2 adm m1' m2' h b1 h_rec Hrec Hil.
+  unfold intake_learning in Hil.
+  rewrite Hrec in Hil.
+  inversion Hil; subst. simpl. reflexivity.
+Qed.
+
+(* W branchu BTrue centrum m1 staje się step_center_toward.          *)
+Theorem intake_learning_match_steps_center :
+  forall m1 m2 adm m1' m2' h b1 h_rec,
+  recognize (mem_filter_center m2) (membrane_as_figure m1) (mem_budget m1)
+    = (BTrue, b1, h_rec) ->
+  intake_learning m1 m2 = (adm, m1', m2', h) ->
+  mem_filter_center m1'
+    = step_center_toward (mem_filter_center m1) (mem_filter_center m2).
+Proof.
+  intros m1 m2 adm m1' m2' h b1 h_rec Hrec Hil.
+  unfold intake_learning in Hil.
+  rewrite Hrec in Hil.
+  destruct (min_fin_dec (mem_budget m2) (mem_capacity m1) b1)
+    as [[[adm0 flag] b1_min] h_min] eqn:Hmin.
+  destruct (assimilate_b_spur adm0 b1_min) as [b1_final h_assim] eqn:Hassim.
+  destruct (spend_aux (mem_budget m2) adm0) as [b2_final h_spend] eqn:Hspend.
+  inversion Hil; subst. simpl. reflexivity.
+Qed.
+
+(* Długość listy mem_filter_center nie zmienia się.                  *)
+(* step_center_toward zwraca listę o tej samej długości co source.   *)
+
+Lemma step_center_toward_preserves_length :
+  forall src tgt, length (step_center_toward src tgt) = length src.
+Proof.
+  intros src tgt.
+  destruct src as [| sp srest]; destruct tgt as [| tp trest]; simpl; reflexivity.
+Qed.
+
+Theorem intake_learning_preserves_m1_center_length :
+  forall m1 m2 adm m1' m2' h,
+  intake_learning m1 m2 = (adm, m1', m2', h) ->
+  length (mem_filter_center m1') = length (mem_filter_center m1).
+Proof.
+  intros m1 m2 adm m1' m2' h Hil.
+  unfold intake_learning in Hil.
+  destruct (recognize (mem_filter_center m2) (membrane_as_figure m1) (mem_budget m1))
+    as [[res b1] h_rec] eqn:Hrec.
+  destruct res.
+  - destruct (min_fin_dec (mem_budget m2) (mem_capacity m1) b1)
+      as [[[adm0 flag] b1_min] h_min] eqn:Hmin.
+    destruct (assimilate_b_spur adm0 b1_min) as [b1_final h_assim] eqn:Hassim.
+    destruct (spend_aux (mem_budget m2) adm0) as [b2_final h_spend] eqn:Hspend.
+    inversion Hil; subst. simpl.
+    apply step_center_toward_preserves_length.
+  - inversion Hil; subst. simpl. reflexivity.
+  - inversion Hil; subst. simpl. reflexivity.
+Qed.
+
+(* Cisza przy zerowym budżecie m1, jak w intake.                     *)
+Theorem intake_learning_zero_budget_silent :
+  forall m1 m2,
+  mem_budget m1 = fz ->
+  intake_learning m1 m2 = (fz,
+                  mkMembrane (mem_filter_center m1)
+                             (mem_filter_radius m1)
+                             (mem_capacity m1)
+                             fz
+                             (mem_inner m1),
+                  m2,
+                  fz).
+Proof.
+  intros m1 m2 Hb.
+  unfold intake_learning, membrane_as_figure.
+  rewrite Hb.
+  rewrite (recognize_zero_budget_blind (mem_filter_center m2)
+    (mkFigure (mem_filter_center m1) (mem_filter_radius m1))).
+  simpl. reflexivity.
+Qed.
+
+(* ================================================================ *)
+(* PART 24: LIST_INTAKE_LEARNING — warstwa neuronów-membran          *)
+(* ================================================================ *)
+(* Lift intake_learning na listę membran: warstwa neuronów widzi    *)
+(* jeden sygnał (membranę m2), każdy neuron sekwencyjnie robi        *)
+(* intake_learning. Sygnał przechodzi przez wszystkie neurony —      *)
+(* jeśli któryś rozpoznaje, pobiera admitted z budgetu sygnału;     *)
+(* sygnał z mniejszym budgetem przechodzi do następnego neurona.    *)
+(*                                                                    *)
+(* MembraneLayer to po prostu list Membrane, ale opakowanie nazwą    *)
+(* sygnalizuje intencję (warstwa sieci, nie luźna kolekcja).         *)
+(* ================================================================ *)
+
+(* MembraneLayer: alias dla list Membrane, semantycznie warstwa.    *)
+Definition MembraneLayer := list Membrane.
+
+(* list_intake_learning: warstwa widzi sygnał, każdy neuron uczy.   *)
+Fixpoint list_intake_learning
+  (neurons : MembraneLayer) (signal : Membrane)
+  : (MembraneLayer * Membrane * Spuren) :=
+  match neurons with
+  | nil => (nil, signal, fz)
+  | n :: rest =>
+      match intake_learning n signal with
+      | (_admitted, n', signal', h1) =>
+          match list_intake_learning rest signal' with
+          | (rest', signal'', h2) =>
+              (n' :: rest', signal'', add_spur h1 h2)
+          end
+      end
+  end.
+
+(* ---- Twierdzenia preserves dla warstwy ---- *)
+
+(* Długość warstwy się nie zmienia — jeden neuron na wejściu, jeden  *)
+(* neuron na wyjściu. Brak narodzin, brak śmierci na poziomie listy. *)
+Theorem list_intake_learning_preserves_length :
+  forall neurons signal neurons' signal' h,
+  list_intake_learning neurons signal = (neurons', signal', h) ->
+  length neurons' = length neurons.
+Proof.
+  induction neurons as [| n rest IH];
+    intros signal neurons' signal' h Hlil.
+  - simpl in Hlil. inversion Hlil; subst. reflexivity.
+  - simpl in Hlil.
+    destruct (intake_learning n signal) as [[[adm n_new] sig1] h1] eqn:Hil.
+    destruct (list_intake_learning rest sig1) as [[rest' sig2] h2] eqn:Hrec.
+    inversion Hlil; subst.
+    simpl. f_equal.
+    exact (IH _ _ _ _ Hrec).
+Qed.
+
+(* Geometria każdego neurona zachowana lokalnie — radius, capacity,  *)
+(* inner. Centrum może się przesunąć (intake_learning), ale tylko   *)
+(* o krok per spotkanie.                                              *)
+
+Theorem list_intake_learning_preserves_radii :
+  forall neurons signal neurons' signal' h,
+  list_intake_learning neurons signal = (neurons', signal', h) ->
+  map mem_filter_radius neurons' = map mem_filter_radius neurons.
+Proof.
+  induction neurons as [| n rest IH];
+    intros signal neurons' signal' h Hlil.
+  - simpl in Hlil. inversion Hlil; subst. reflexivity.
+  - simpl in Hlil.
+    destruct (intake_learning n signal) as [[[adm n_new] sig1] h1] eqn:Hil.
+    destruct (list_intake_learning rest sig1) as [[rest' sig2] h2] eqn:Hrec.
+    inversion Hlil; subst.
+    simpl. f_equal.
+    + exact (intake_learning_preserves_m1_radius _ _ _ _ _ _ Hil).
+    + exact (IH _ _ _ _ Hrec).
+Qed.
+
+Theorem list_intake_learning_preserves_capacities :
+  forall neurons signal neurons' signal' h,
+  list_intake_learning neurons signal = (neurons', signal', h) ->
+  map mem_capacity neurons' = map mem_capacity neurons.
+Proof.
+  induction neurons as [| n rest IH];
+    intros signal neurons' signal' h Hlil.
+  - simpl in Hlil. inversion Hlil; subst. reflexivity.
+  - simpl in Hlil.
+    destruct (intake_learning n signal) as [[[adm n_new] sig1] h1] eqn:Hil.
+    destruct (list_intake_learning rest sig1) as [[rest' sig2] h2] eqn:Hrec.
+    inversion Hlil; subst.
+    simpl. f_equal.
+    + exact (intake_learning_preserves_m1_capacity _ _ _ _ _ _ Hil).
+    + exact (IH _ _ _ _ Hrec).
+Qed.
+
+(* Pusta warstwa: sygnał przechodzi nietknięty, zero Spuren.         *)
+Theorem list_intake_learning_empty_layer :
+  forall signal,
+  list_intake_learning nil signal = (nil, signal, fz).
+Proof. intros signal. reflexivity. Qed.
+
+(* Warstwa z martwym sygnałem (mem_budget signal = fz): każdy       *)
+(* neuron widzi cisza-budget, intake_learning_zero_budget_silent     *)
+(* nie applies tutaj (to dotyczy m1=neuronu z fz, nie m2=signal).   *)
+(* Co JEST prawdą: jeśli budget signal = fz, recognize wraca         *)
+(* (BTrue, fz, fz) lub (BFalse, ...) zależnie od dist; ale signal'  *)
+(* po przejściu przez neuron z BTrue ma budget = fz - admitted ≤ fz.*)
+(* Skoro fz - admitted saturuje na fz, signal pozostaje z fz budget.*)
+(* Stąd wszystkie kolejne neurony widzą fz-budget signal jak pierwszy.*)
+(* Ten lemat formalizuje: dla pustej listy neuronów zwraca trywialne.*)
+(* Pełniejszy lemat dla niepustej listy z fz-signal wymaga indukcji *)
+(* po liście i jest pomijany w tej iteracji.                          *)

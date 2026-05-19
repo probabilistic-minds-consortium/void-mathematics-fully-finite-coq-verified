@@ -142,23 +142,32 @@ Definition spend (cost : Fin) : B unit :=
   fun b => let (b', h) := spend_aux b cost in (tt, b', h).
 
 (******************************************************************************)
-(* COSTS AS PARAMETERS - NOT CONSTRUCTED                                     *)
+(* COSTS AS DEFINITIONS - ONE TICK MINIMUM                                    *)
+(*                                                                            *)
+(* Historically these were Parameter + Axiom-positivity. The axioms only said *)
+(* that the cost is greater than zero (exists n, cost = fs n). With concrete *)
+(* definitions, positivity becomes a Lemma proven by reflexivity, and the    *)
+(* Axioms drop out of the dependency graph.                                  *)
 (******************************************************************************)
 
-Parameter comparison_cost : Fin.
-Parameter arithmetic_cost : Fin.
-Parameter construction_cost : Fin.
+Definition comparison_cost : Fin := fs fz.
+Definition arithmetic_cost : Fin := fs fz.
+Definition construction_cost : Fin := fs fz.
 
-Axiom comparison_cost_positive   : exists n, comparison_cost = fs n.
-Axiom arithmetic_cost_positive   : exists n, arithmetic_cost = fs n.
-Axiom construction_cost_positive : exists n, construction_cost = fs n.
+Lemma comparison_cost_positive   : exists n, comparison_cost = fs n.
+Proof. exists fz. reflexivity. Qed.
+Lemma arithmetic_cost_positive   : exists n, arithmetic_cost = fs n.
+Proof. exists fz. reflexivity. Qed.
+Lemma construction_cost_positive : exists n, construction_cost = fs n.
+Proof. exists fz. reflexivity. Qed.
 
 (******************************************************************************)
 (* BOOTSTRAP BUDGET                                                          *)
 (******************************************************************************)
 
-Parameter initial_budget : Budget.
-Axiom initial_budget_sufficient : exists n, initial_budget = fs (fs (fs n)).
+Definition initial_budget : Budget := fs (fs (fs fz)).
+Lemma initial_budget_sufficient : exists n, initial_budget = fs (fs (fs n)).
+Proof. exists fz. reflexivity. Qed.
 
 (******************************************************************************)
 (* CAP - EMERGENT FROM CONTOUR, NOT AXIOMATIC                                *)
@@ -1023,8 +1032,30 @@ Qed.
    produktami percepcji, atomowe to po prostu te ktore wchlonely
    malo lub nic. *)
 
+(* ================================================================ *)
+(* Pattern — localized observation with probabilistic strength      *)
+(* ================================================================ *)
+(* Defined here at the foundation so that Membrane.mem_filter_center *)
+(* can be a list of Patterns rather than raw pairs. The strength    *)
+(* field is a (Fin x Fin) pair — semantically a fraction            *)
+(* (numerator, denominator), aliased as FinProb in                  *)
+(* void_probability_minimal for higher-layer probabilistic use.     *)
+(* This is the unified Pattern that void_pattern.v and              *)
+(* void_probability_geometry.v both reference (no local redefs).    *)
+
+Record Pattern : Type := mkPattern {
+  location : Fin;
+  strength : (Fin * Fin)%type
+}.
+
+(* Helper: legacy (value, budget) pair lifted to a Pattern.         *)
+(* Default denominator = fs numerator, giving asymptotic confidence *)
+(* (n / (n+1) -> 1) without ever reaching the self-blind diagonal.  *)
+Definition mk_pattern_from_pair (a b : Fin) : Pattern :=
+  mkPattern a (b, fs b).
+
 Inductive Membrane : Type := mkMembrane {
-  mem_filter_center : list (Fin * Fin);  (* prototype of what passes through *)
+  mem_filter_center : list Pattern;      (* prototype of what passes through *)
   mem_filter_radius : Fin;               (* tolerance — how far from prototype *)
   mem_capacity : Fin;                    (* max budget admitted per intake *)
   mem_budget : Budget;                   (* membrane own budget for filtration *)

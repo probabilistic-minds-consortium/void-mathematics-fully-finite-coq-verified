@@ -302,9 +302,12 @@ Qed.
 (* Measurement changes the measured — DDF as thermodynamic fact.            *)
 (******************************************************************************)
 
-(* Minimum budget for spawning a sub-observer *)
-Parameter B_min_reproduce : Budget.
-Axiom B_min_positive : exists n, B_min_reproduce = fs (fs (fs n)).
+(* Minimum budget for spawning a sub-observer.
+   Was Parameter + Axiom; concretised as a Definition so positivity becomes
+   a Lemma rather than an Axiom. *)
+Definition B_min_reproduce : Budget := fs (fs (fs fz)).
+Lemma B_min_positive : exists n, B_min_reproduce = fs (fs (fs n)).
+Proof. exists fz. reflexivity. Qed.
 
 (* Spawn a sub-observer: splits budget between parent and child *)
 Definition spawn_sub_observer (parent : Observer) (b : Budget)

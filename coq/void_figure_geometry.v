@@ -1027,13 +1027,13 @@ Definition f64' : Fin := double_fin f32'.
 (*   fig_high : high-value figure with ample budget per coord, tight radius. *)
 (*   fig_low  : low-value figure, same budget profile.                       *)
 (*   fig_blur : diagonal (value = budget) figure -> self-blind witness.      *)
-Definition fig_high : Figure := mkFigure [(f2', f4'); (f1', f4')] f1'.
-Definition fig_low  : Figure := mkFigure [(fz , f4'); (f2', f4')] f1'.
-Definition fig_blur : Figure := mkFigure [(f1', f1'); (f1', f1')] f2'.
+Definition fig_high : Figure := mkFigure [mk_pattern_from_pair f2' f4'; mk_pattern_from_pair f1' f4'] f1'.
+Definition fig_low  : Figure := mkFigure [mk_pattern_from_pair fz  f4'; mk_pattern_from_pair f2' f4'] f1'.
+Definition fig_blur : Figure := mkFigure [mk_pattern_from_pair f1' f1'; mk_pattern_from_pair f1' f1'] f2'.
 
 (* Two signals. *)
-Definition sig_near_high : list Pattern := [(f2', f8'); (f1', f8')].
-Definition sig_between   : list Pattern := [(f1', f4'); (f1', f4')].
+Definition sig_near_high : list Pattern := [mk_pattern_from_pair f2' f8'; mk_pattern_from_pair f1' f8'].
+Definition sig_between   : list Pattern := [mk_pattern_from_pair f1' f4'; mk_pattern_from_pair f1' f4'].
 
 (* ----- Eval compute witnesses ----- *)
 

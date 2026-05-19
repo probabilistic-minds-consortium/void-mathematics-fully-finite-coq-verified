@@ -20,10 +20,12 @@ Import Void_Arithmetic.
 (* BASIC TYPES                                                                *)
 (******************************************************************************)
 
-Record Pattern := {
-  location : Fin;
-  strength : FinProb
-}.
+(* Pattern is now defined in void_finite_minimal.v as the unified type. *)
+(* Pattern, mkPattern, location, strength are visible to clients of      *)
+(* this file via transitive `Require Import void_finite_minimal.` —      *)
+(* we do NOT redefine them here, because Definition aliases would shadow *)
+(* the record-projection nature of `location` and `strength`, breaking   *)
+(* `{| location := ...; strength := ... |}` syntax everywhere downstream.*)
 
 Record Observer := {
   sensitivity : Fin;

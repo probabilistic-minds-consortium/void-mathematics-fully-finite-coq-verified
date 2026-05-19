@@ -243,20 +243,32 @@ Fixpoint dot_product (v1 v2 : list Fin) (b : Budget) : (Fin * Budget) :=
   end.
 
 (******************************************************************************)
-(* SPUR CONSERVATION THEOREMS                                                *)
+(* SPUR CONSERVATION                                                          *)
+(*                                                                            *)
+(* HISTORY: this file used to declare four Axioms named                       *)
+(*   spur_conservation_add / _sub / _mult / _div                              *)
+(* claiming `add_spur h b' = b` for the corresponding operation.              *)
+(*                                                                            *)
+(* They have been REMOVED. They were never used anywhere in the codebase,     *)
+(* and on close inspection at least the additive form is FALSE for the       *)
+(* `add_fin_spur` defined here: a small concrete trace                        *)
+(*   add_fin_spur fz (fs fz) (fs (fs fz)) = (fs fz, fz, fs fz),               *)
+(* gives `add_spur (fs fz) fz = fs fz`, which is `1`, not the input budget    *)
+(* `2 = fs (fs fz)`. The post-recursion match-on-`b''` branch in              *)
+(* `add_fin_spur` collapses one tick of remaining budget into the output      *)
+(* budget without compensating in Spuren, so conservation does not hold for   *)
+(* this implementation.                                                       *)
+(*                                                                            *)
+(* The CANONICAL implementation in `void_finite_minimal.v` uses               *)
+(*   add_fin_b_spur, sub_saturate_b_spur, mult_fin_spur, div_fin_spur        *)
+(* and PROVES the same conservation statements as Lemmas with Qed. Any caller *)
+(* that needs spur conservation should use the canonical implementation.      *)
+(*                                                                            *)
+(* The redundant `add_fin_spur` etc. in this file remain available for the    *)
+(* one downstream caller (`void_information_theory.v`) that already imports   *)
+(* Void_Arithmetic; that file does not invoke spur conservation, so removing  *)
+(* the axioms breaks nothing.                                                 *)
 (******************************************************************************)
-
-Axiom spur_conservation_add : forall n m b b' res h,
-  add_fin_spur n m b = (res, b', h) -> add_spur h b' = b.
-
-Axiom spur_conservation_sub : forall n m b b' res h,
-  sub_fin_spur n m b = (res, b', h) -> add_spur h b' = b.
-
-Axiom spur_conservation_mult : forall n m b b' res h,
-  mult_fin_spur n m b = (res, b', h) -> add_spur h b' = b.
-
-Axiom spur_conservation_div : forall n m b b' q r h,
-  div_fin_spur n m b = (q, r, b', h) -> add_spur h b' = b.
 
 (******************************************************************************)
 (* PROBABILITY DIVISION MODULE                                               *)
@@ -399,20 +411,19 @@ Proof.
       discriminate.
 Qed.
 
-(* Original statement preserved for backward compatibility *)
-Lemma spur_monotone : forall n m b res b' h,
-  add_fin_spur n m b = (res, b', h) ->
-  (fin_to_Z_PROOF_ONLY h >= 0)%Z.
-Proof.
-  intros. apply spur_nonneg.
-Qed.
-
-(* Budget + Spuren = Original Budget (conservation) *)
-Lemma budget_spur_conservation : forall n m b res b' h,
-  add_fin_spur n m b = (res, b', h) ->
-  add_spur h b' = b.
-Proof.
-  intros. apply spur_conservation_add with n m res. exact H.
-Qed.
+(* HISTORY: this file used to contain two more lemmas at this point —
+     spur_monotone        : forall n m b res b' h,
+       add_fin_spur n m b = (res, b', h) ->
+       (fin_to_Z_PROOF_ONLY h >= 0)%Z.
+     budget_spur_conservation : forall n m b res b' h,
+       add_fin_spur n m b = (res, b', h) ->
+       add_spur h b' = b.
+   Neither was used anywhere outside this file. The first is a vacuous
+   restatement of `spur_nonneg` (the hypothesis is unused). The second
+   relied on the now-removed `spur_conservation_add` Axiom and is FALSE
+   for the `add_fin_spur` defined here (concrete trace in the comment
+   block above the deleted Axioms). Both have been removed.
+   Callers needing spur conservation should use `add_fin_b_spur` from
+   `void_finite_minimal.v` and the proven Lemma there. *)
 
 End Void_Arithmetic.

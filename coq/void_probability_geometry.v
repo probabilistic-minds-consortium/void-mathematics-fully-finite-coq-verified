@@ -1484,12 +1484,21 @@ Qed.
 (* (verdict, remaining_budget, heat). The hub integrates, decides, and pays. *)
 (******************************************************************************)
 
-(* A Pattern is a pair: what-was-computed × what-remains.                    *)
-(* Not a number. A metabolic configuration.                                  *)
-Definition Pattern := (Fin * Fin)%type.
+(* Pattern is the unified type defined in void_finite_minimal.v.            *)
+(* Here we re-expose the legacy 2D-projection accessors so that the rest    *)
+(* of this module (and clients) continue to compute distance, recognize,    *)
+(* and overlap as if Pattern were a (value, budget) pair.                   *)
+(*                                                                          *)
+(* Mapping into the unified Record:                                         *)
+(*   pattern_value  = location          (where the pattern stands)          *)
+(*   pattern_budget = fst strength      (numerator of probabilistic force)  *)
+(*                                                                          *)
+(* The denominator of `strength` carries probabilistic interpretation       *)
+(* used by higher layers; geometric distance ignores it.                    *)
+Definition Pattern := void_finite_minimal.Pattern.
 
-Definition pattern_value (p : Pattern) : Fin := fst p.
-Definition pattern_budget (p : Pattern) : Fin := snd p.
+Definition pattern_value (p : Pattern) : Fin := void_finite_minimal.location p.
+Definition pattern_budget (p : Pattern) : Fin := fst (void_finite_minimal.strength p).
 
 (* DIAGONAL PATTERN: value = budget.                                         *)
 (* The system tries to measure itself with itself.                           *)

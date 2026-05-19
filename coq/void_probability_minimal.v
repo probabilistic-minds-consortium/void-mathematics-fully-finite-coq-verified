@@ -241,12 +241,14 @@ Proof.
   exact (spur_conservation_mult _ _ _ _ _ _ Hm1).
 Qed.
 
-(* Fraction arithmetic generates more Spuren than integer arithmetic *)
+(* Fraction arithmetic generates at least as much Spuren as integer arithmetic.
+   Stated structurally on Fin (via leF) rather than via Z, so the specification
+   does not depend on the meta-level fin_to_Z conversion. *)
 Axiom fraction_heat_penalty : forall p1 p2 b res b' h,
   add_prob_spur p1 p2 b = (res, b', h) ->
-  exists h_int b_int, 
+  exists h_int b_int,
     add_fin_b_spur (fst p1) (fst p2) b = (fst res, b_int, h_int) /\
-    (fin_to_Z_PROOF_ONLY h >= fin_to_Z_PROOF_ONLY h_int)%Z.
+    leF h_int h.
 
 (******************************************************************************)
 (* THEOREMS - Previous ones still hold                                       *)
