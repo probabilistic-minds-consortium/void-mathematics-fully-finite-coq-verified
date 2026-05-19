@@ -1362,12 +1362,9 @@ Qed.
 (* Shape (filter) is the condition of discrimination, not its enemy. Three   *)
 (* faces of the same insight: without shape there is no learning.            *)
 (*                                                                            *)
-(*   basic_channel:           score = 0     → death  (Basic Channel, Berlin  *)
-(*                            dub techno — music reduced to silence itself)   *)
-(*   birmingham_stagnation:   score = const → freeze (Birmingham — Surgeon,  *)
-(*                            Regis — post-industrial stasis as sonic form)   *)
-(*   servants_discrimination: score varies  → learn  (Silent Servant / Juan  *)
-(*                            Mendez, Sandwell District — shape as devotion) *)
+(*   basic_channel:           score = 0     → death                         *)
+(*   birmingham_stagnation:   score = const → freeze                        *)
+(*   tresor_discrimination:   score varies  → learn                         *)
 (*                                                                            *)
 (* The vault keeps what is precious (recognition, learning) inside. Open the *)
 (* vault (radius → infinite, no filter) and value escapes. Lock it too tight *)
@@ -1376,10 +1373,8 @@ Qed.
 (******************************************************************************)
 
 (* ---- BASIC_CHANNEL: no fit → death ---- *)
-(* Basic Channel — Moritz von Oswald & Mark Ernestus, Berlin. Music reduced *)
-(* to its skeleton: silence as structural element. Here: score = 0 means    *)
-(* the signal falls outside the filter. The membrane receives nothing;      *)
-(* cost-of-presence finishes the job alone. Silence is death.               *)
+(* If soft_filter_score returns fz, cap_decay collapses mem_capacity to fz. *)
+(* The signal outside the filter does not nourish; cost-of-presence kills.  *)
 
 Theorem basic_channel :
   forall m signal sigma_max c_min b b1 h1 m' b' h,
@@ -1389,13 +1384,10 @@ Theorem basic_channel :
 Proof. exact zero_match_annihilation. Qed.
 
 (* ---- BIRMINGHAM_STAGNATION: homogeneous shapes → frozen budgets ---- *)
-(* Birmingham — Surgeon, Regis, Female, the Birmingham sound: industrial    *)
-(* repetition as aesthetic. Post-industrial stasis made sonic. Here:         *)
-(* three membranes with identical centers and radii see the same signal.    *)
+(* Three membranes with identical centers and radii see the same signal.    *)
 (* Each scores identically; under multiplicative_update each computes       *)
 (*   new_b = floor(budget × divisor / divisor) = budget                     *)
 (* — budgets unchanged. No differentiation, no selection, no learning.      *)
-(* The machine repeats. Nothing moves. Birmingham.                          *)
 
 Definition birm_m1 : Membrane :=
   mkMembrane [mk_pattern_from_pair f3 f8] f4 f4 f4 nil.
@@ -1418,15 +1410,15 @@ Theorem birmingham_stagnation :
   birm_result_budgets = map mem_budget birm_membranes.
 Proof. vm_compute. reflexivity. Qed.
 
-(* ---- SERVANTS_DISCRIMINATION: heterogeneous shapes → learning ---- *)
-(* Silent Servant — Juan Mendez, Sandwell District. Shape as devotion:      *)
-(* the filter that lets you hear what others miss. Here: heterogeneous       *)
-(* membranes (inner_1, inner_2, inner_3) with centers at 2/8, 3/8, 5/8     *)
-(* see a signal at 3/8. Scores differ; after 5 cycles budgets diverge:      *)
-(* (6, 32, 1). The membrane closest to the signal keeps almost everything.  *)
-(* The one furthest nearly dies. Real shape, real selection, real learning.  *)
+(* ---- TRESOR_DISCRIMINATION: heterogeneous shapes → learning ---- *)
+(* Wrapper for final_budgets_fixed_correct: heterogeneous membranes (inner_1,*)
+(* inner_2, inner_3) with centers at 2/8, 3/8, 5/8 see a signal at 3/8. The *)
+(* scores differ (inner_2 matches perfectly, inner_1 close, inner_3 far),  *)
+(* and after 5 cycles the budgets diverge: (6, 32, 1). Inner_2 keeps almost *)
+(* everything; inner_3 nearly dies. Real shape, real selection, real        *)
+(* learning. The vault is calibrated. *)
 
-Theorem servants_discrimination :
+Theorem tresor_discrimination :
   final_budgets = (f6 :: f32 :: f1 :: nil).
 Proof. exact final_budgets_fixed_correct. Qed.
 
@@ -1444,6 +1436,6 @@ Eval vm_compute in
 Eval vm_compute in birm_result_budgets.
 (* Expected: [f4; f8; f16] — same as input *)
 
-(* servants_discrimination in action: final_budgets after 5 cycles. *)
+(* tresor_discrimination in action: final_budgets after 5 cycles. *)
 Eval vm_compute in final_budgets.
 (* Expected: [f6; f32; f1] — divergent *)
